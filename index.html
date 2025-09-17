@@ -2,59 +2,261 @@
 <html lang="en">
 <head>
 <meta charset="utf-8" />
-<title>KSP Tracker Test</title>
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>PMC Space International | KSP RSS/RO Mission Tracker</title>
 <style>
-  html,body {margin:0; height:100%; overflow:hidden; background:#000; color:#fff; font-family:sans-serif;}
-  #timeLabel {position:absolute; top:10px; left:10px; background:rgba(0,0,0,0.6); padding:6px 10px; border-radius:6px;}
+html,body { margin:0; height:100%; font-family:sans-serif; background:#0b0b0b; color:#ddd; overflow:hidden; }
+canvas { display:block; }
+#ui { position:absolute; left:10px; top:10px; z-index:10; background:rgba(0,0,0,0.45); padding:10px; border-radius:8px; min-width:220px; }
+#ui h3{ margin:0 0 8px 0; font-size:15px; color:#fff; }
+#ui select{ width:100%; margin:6px 0; padding:8px; }
+#timeLabel{ font-size:12px; margin-top:6px; color:#ccc; }
+#legend{ position:absolute; right:10px; top:10px; z-index:9; background:rgba(0,0,0,0.35); padding:8px; border-radius:8px; color:#ddd; font-size:12px; }
+#infoPanel{ display:none; position:absolute; bottom:20px; left:20px; width:300px; background:rgba(0,0,0,0.8); padding:12px; border-radius:8px; color:#eee; font-size:14px; z-index:20; }
+#infoPanel h3{ margin:0 0 6px 0; font-size:16px; color:#fff; }
 </style>
 </head>
 <body>
-<div id="timeLabel">UTC: <span id="utcTime">—</span></div>
+<div id="ui">
+  <h3>Planet Viewer</h3>
+  <label>Planet</label>
+  <select id="planetSelect">
+    <option value="earth" selected>Earth</option>
+    <option value="moon">Moon</option>
+    <option value="mars">Mars</option>
+  </select>
+  <div id="timeLabel">UTC: <span id="utcTime">—</span></div>
+</div>
 
-<!-- Use Three.js r141 (with OrbitControls globally available) -->
+<div id="legend">Controls: drag to rotate, scroll to zoom. Click vessel markers for details.</div>
+
+<div id="infoPanel">
+  <div id="infoContent"></div>
+  <button onclick="closeInfo()" style="margin-top:10px; width:100%; padding:6px;">Close</button>
+</div>
+
 <script src="https://cdn.jsdelivr.net/npm/three@0.141.0/build/three.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/three@0.141.0/examples/js/controls/OrbitControls.js"></script>
 
 <script>
-try {
-  let scene = new THREE.Scene();
-  let camera = new THREE.PerspectiveCamera(60, window.innerWidth/window.innerHeight, 0.1, 1000);
-  camera.position.set(0,0,5);
+/* ---------------------------
+  Planet & Vessel Setup
+---------------------------- */
+const PLANETS = {
+  earth: {
+    radius_m: 6371000,
+    mu: 3.986004418e14,
+    texture: "https://threejs.org/examples/textures/land_ocean_ice_cloud_2048.jpg"
+  },
+  moon: {
+    radius_m: 1737100,
+    mu: 4.9048695e12,
+    texture: "https://threejs.org/examples/textures/moon_1024.jpg"
+  },
+  mars: {
+    radius_m: 3389500,
+    mu: 4.282837e13,
+    texture: "https://www.solarsystemscope.com/textures/download/2k_mars.jpg"
+  }
+};
 
-  let renderer = new THREE.WebGLRenderer({antialias:true});
-  renderer.setSize(window.innerWidth, window.innerHeight);
+let scene,camera,renderer,controls;
+let planetMesh=null,planetGroup,orbitLinesGroup;
+let vessels=[];
+
+const DISTANCE_SCALE = 1e-6;
+const MIN_RENDER_SCALE = 1e-7;
+
+let raycaster = new THREE.Raycaster();
+let mouse = new THREE.Vector2();
+
+init();
+animate();
+loadVessels();
+
+/* ---------------------------
+   Init scene
+---------------------------- */
+function init(){
+  scene = new THREE.Scene();
+  camera = new THREE.PerspectiveCamera(45, window.innerWidth/window.innerHeight, 0.01, 1e9);
+  camera.position.set(0,2,6);
+  renderer = new THREE.WebGLRenderer({antialias:true});
+  renderer.setSize(window.innerWidth,window.innerHeight);
   document.body.appendChild(renderer.domElement);
 
-  let controls = new THREE.OrbitControls(camera, renderer.domElement);
+  controls = new THREE.OrbitControls(camera,renderer.domElement);
+  controls.enableDamping = true;
 
-  // Simple gray sphere
-  let geometry = new THREE.SphereGeometry(2, 32, 32);
-  let material = new THREE.MeshBasicMaterial({color:0x8888ff});
-  let earth = new THREE.Mesh(geometry, material);
-  scene.add(earth);
+  scene.add(new THREE.DirectionalLight(0xffffff,1).position.set(5,2,2));
+  scene.add(new THREE.AmbientLight(0x606060));
 
-  let light = new THREE.DirectionalLight(0xffffff, 1);
-  light.position.set(5,5,5);
-  scene.add(light);
+  planetGroup = new THREE.Group();
+  scene.add(planetGroup);
 
-  function animate(){
-    requestAnimationFrame(animate);
-    earth.rotation.y += 0.001;
-    document.getElementById('utcTime').textContent =
-      new Date().toISOString().replace('T',' ').replace('Z',' UTC');
-    controls.update();
-    renderer.render(scene, camera);
+  orbitLinesGroup = new THREE.Group();
+  scene.add(orbitLinesGroup);
+
+  createPlanet('earth');
+
+  document.getElementById('planetSelect').addEventListener('change',e=>createPlanet(e.target.value));
+  window.addEventListener('resize',onResize);
+  window.addEventListener('click',onMouseClick,false);
+}
+
+/* ---------------------------
+   Planet
+---------------------------- */
+function createPlanet(key){
+  const p = PLANETS[key];
+  if(planetMesh){ planetGroup.remove(planetMesh); planetMesh.geometry.dispose(); }
+  const radiusScene = Math.max(p.radius_m*DISTANCE_SCALE, p.radius_m*MIN_RENDER_SCALE);
+  const geometry = new THREE.SphereGeometry(radiusScene,64,64);
+  const texture = new THREE.TextureLoader().load(p.texture);
+  const material = new THREE.MeshStandardMaterial({map:texture});
+  planetMesh = new THREE.Mesh(geometry,material);
+  planetMesh.userData = {radius_m: p.radius_m, key};
+  planetGroup.add(planetMesh);
+  controls.target.set(0,0,0);
+  camera.position.set(radiusScene*4, radiusScene*1.2, radiusScene*4);
+  controls.update();
+}
+
+/* ---------------------------
+   Starfield
+---------------------------- */
+function createStarfield(){
+  const stars = new THREE.BufferGeometry();
+  const starCount = 4000;
+  const positions = new Float32Array(starCount*3);
+  for(let i=0;i<starCount;i++){
+    const r = Math.random()*1000+500;
+    const theta = Math.random()*Math.PI*2;
+    const phi = Math.acos(2*Math.random()-1);
+    positions[3*i] = r*Math.sin(phi)*Math.cos(theta);
+    positions[3*i+1] = r*Math.sin(phi)*Math.sin(theta);
+    positions[3*i+2] = r*Math.cos(phi);
   }
-  animate();
+  stars.setAttribute('position', new THREE.BufferAttribute(positions,3));
+  const starMat = new THREE.PointsMaterial({size:0.8, color:0xffffff});
+  const points = new THREE.Points(stars, starMat);
+  points.frustumCulled = false;
+  scene.add(points);
+}
+createStarfield();
 
-  window.addEventListener('resize', ()=>{
-    camera.aspect = window.innerWidth/window.innerHeight;
-    camera.updateProjectionMatrix();
-    renderer.setSize(window.innerWidth, window.innerHeight);
-  });
-} catch (err) {
-  console.error("Error in script:", err);
-  document.body.innerHTML = "<h1 style='color:red'>JS ERROR</h1><pre>"+err+"</pre>";
+/* ---------------------------
+   Orbit/Vessel Module
+---------------------------- */
+const OrbitModule = (function(){
+  const orbits = [];
+  function clear(){
+    orbits.forEach(o=>{
+      if(o.line){ orbitLinesGroup.remove(o.line); o.line.geometry.dispose(); }
+      if(o.marker){ orbitLinesGroup.remove(o.marker); }
+    });
+    orbits.length=0;
+    vessels=[];
+  }
+  function deg2rad(d){ return d*Math.PI/180; }
+  function solveKepler(M,e,tol=1e-8){
+    M = ((M % (2*Math.PI))+2*Math.PI)%(2*Math.PI);
+    let E = e<0.8?M:Math.PI;
+    for(let i=0;i<50;i++){
+      let f=E-e*Math.sin(E)-M;
+      let fp=1-e*Math.cos(E);
+      let dE=f/fp;
+      E-=dE;
+      if(Math.abs(dE)<tol) break;
+    }
+    return E;
+  }
+  function orbitalToState(a,e,i_deg,raan_deg,argp_deg,M_deg,mu){
+    const i=deg2rad(i_deg),raan=deg2rad(raan_deg),argp=deg2rad(argp_deg),M=deg2rad(M_deg);
+    const E = solveKepler(M,e);
+    const cosE=Math.cos(E),sinE=Math.sin(E);
+    const sqrt1e=Math.sqrt(1-e*e);
+    const nu=Math.atan2(sqrt1e*sinE,cosE-e);
+    const r_pf=[a*(cosE-e),a*sqrt1e*sinE,0];
+    const p=a*(1-e*e);
+    const v_pf=[-Math.sqrt(mu/p)*Math.sin(nu), Math.sqrt(mu/p)*(e+Math.cos(nu)),0];
+    const ca=Math.cos(raan),sa=Math.sin(raan),ci=Math.cos(i),si=Math.sin(i),cp=Math.cos(argp),sp=Math.sin(argp);
+    const R=[ca*cp-sa*sp*ci,-ca*sp-sa*cp*ci,sa*si, sa*cp+ca*sp*ci,-sa*sp+ca*cp*ci,-ca*si, sp*si,cp*si,ci];
+    const r=[R[0]*r_pf[0]+R[1]*r_pf[1]+R[2]*r_pf[2], R[3]*r_pf[0]+R[4]*r_pf[1]+R[5]*r_pf[2], R[6]*r_pf[0]+R[7]*r_pf[1]+R[8]*r_pf[2]];
+    const v=[R[0]*v_pf[0]+R[1]*v_pf[1]+R[2]*v_pf[2], R[3]*v_pf[0]+R[4]*v_pf[1]+R[5]*v_pf[2], R[6]*v_pf[0]+R[7]*v_pf[1]+R[8]*v_pf[2]];
+    return {r,v};
+  }
+  function addOrbit(meta){
+    const central = PLANETS[meta.centralBody||'earth'];
+    const mu = central?central.mu:PLANETS.earth.mu;
+    const markerGeom = new THREE.SphereGeometry(Math.max((planetMesh.userData.radius_m*DISTANCE_SCALE)*0.02,0.5),8,8);
+    const markerMat = new THREE.MeshStandardMaterial({color:0xffaa00,emissive:0x220000});
+    const marker = new THREE.Mesh(markerGeom,markerMat);
+    orbitLinesGroup.add(marker);
+    orbits.push({meta,marker,mu});
+    vessels.push({marker,info:meta.info||{name:meta.id,description:"",youtube:null},orbit:meta,mu});
+  }
+  function updateMarkers(simEpoch){
+    orbits.forEach(o=>{
+      const m=o.meta;
+      const n=Math.sqrt(o.mu/Math.pow(m.a,3));
+      const dt=simEpoch-m.epoch;
+      const M=m.M0*Math.PI/180+n*dt;
+      const state=orbitalToState(m.a,m.e,m.i,m.raan,m.argPeri,M*180/Math.PI,o.mu);
+      o.marker.position.set(...state.r.map(x=>x*DISTANCE_SCALE));
+    });
+  }
+  return {clear,addOrbit,updateMarkers};
+})();
+
+/* ---------------------------
+   Load vessels
+---------------------------- */
+function loadVessels(){
+  fetch("vessels.json")
+    .then(r=>r.json())
+    .then(data=>{
+      OrbitModule.clear();
+      (Array.isArray(data)?data:[data]).forEach(o=>OrbitModule.addOrbit(o));
+    })
+    .catch(err=>console.error("Failed to load vessels.json",err));
+}
+
+/* ---------------------------
+   Interaction
+---------------------------- */
+function onMouseClick(event){
+  mouse.x=(event.clientX/window.innerWidth)*2-1;
+  mouse.y=-(event.clientY/window.innerHeight)*2+1;
+  raycaster.setFromCamera(mouse,camera);
+  const intersects=raycaster.intersectObjects(vessels.map(v=>v.marker));
+  if(intersects.length>0){
+    const vessel=vessels.find(v=>v.marker===intersects[0].object);
+    if(vessel) showInfo(vessel.info);
+  }
+}
+function showInfo(info){
+  const div = document.getElementById('infoContent');
+  div.innerHTML = `<h3>${info.name||'Unnamed Vessel'}</h3><p>${info.description||''}</p>${info.youtube?`<a href="${info.youtube}" target="_blank" style="color:#4af">▶ Watch Video</a>`:''}`;
+  document.getElementById('infoPanel').style.display='block';
+}
+function closeInfo(){ document.getElementById('infoPanel').style.display='none'; }
+
+/* ---------------------------
+   Loop
+---------------------------- */
+function animate(){
+  requestAnimationFrame(animate);
+  const simEpoch = Math.floor(Date.now()/1000);
+  OrbitModule.updateMarkers(simEpoch);
+  document.getElementById('utcTime').textContent = new Date(simEpoch*1000).toISOString().replace('T',' ').replace('Z',' UTC');
+  controls.update();
+  renderer.render(scene,camera);
+}
+function onResize(){
+  camera.aspect = window.innerWidth/window.innerHeight;
+  camera.updateProjectionMatrix();
+  renderer.setSize(window.innerWidth,window.innerHeight);
 }
 </script>
 </body>
