@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>PMC Space International LIVE</title>
+<title>PMC Space International | KSP RSS/RO LIVE</title>
 <style>
   body { margin: 0; overflow: hidden; background: black; }
   #info { position: absolute; top: 10px; left: 10px; color: white; font-family: sans-serif; z-index: 1; }
@@ -12,67 +12,67 @@
 <body>
 <div id="info">UTC Time: <span id="utc-time"></span></div>
 
-<!-- Three.js and OrbitControls from CDN -->
-<script src="https://cdn.jsdelivr.net/npm/three@0.158.0/build/three.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/three@0.158.0/examples/js/controls/OrbitControls.js"></script>
+<script type="module">
+  // Import from official CDN
+  import * as THREE from 'https://cdn.jsdelivr.net/npm/three@0.158.0/build/three.module.js';
+  import { OrbitControls } from 'https://cdn.jsdelivr.net/npm/three@0.158.0/examples/jsm/controls/OrbitControls.js';
 
-<script>
-    // Scene, camera, renderer
-    const scene = new THREE.Scene();
-    const camera = new THREE.PerspectiveCamera(60, window.innerWidth/window.innerHeight, 0.1, 1e8);
-    camera.position.set(0, 0, 15e6);
-    const renderer = new THREE.WebGLRenderer({antialias: true});
+  // Scene, camera, renderer
+  const scene = new THREE.Scene();
+  const camera = new THREE.PerspectiveCamera(60, window.innerWidth/window.innerHeight, 0.1, 1e8);
+  camera.position.set(0, 0, 15e6);
+  const renderer = new THREE.WebGLRenderer({antialias: true});
+  renderer.setSize(window.innerWidth, window.innerHeight);
+  document.body.appendChild(renderer.domElement);
+
+  // Orbit controls
+  const controls = new OrbitControls(camera, renderer.domElement);
+  controls.enableDamping = true;
+  controls.dampingFactor = 0.05;
+
+  window.addEventListener('resize', () => {
+    camera.aspect = window.innerWidth/window.innerHeight;
+    camera.updateProjectionMatrix();
     renderer.setSize(window.innerWidth, window.innerHeight);
-    document.body.appendChild(renderer.domElement);
+  });
 
-    // Orbit controls
-    const controls = new THREE.OrbitControls(camera, renderer.domElement);
-    controls.enableDamping = true;
-    controls.dampingFactor = 0.05;
+  // Earth
+  const textureLoader = new THREE.TextureLoader();
+  const earthTexture = textureLoader.load('https://raw.githubusercontent.com/turban/webgl-earth/master/images/2_no_clouds_4k.jpg');
+  const earthGeometry = new THREE.SphereGeometry(6371e3, 64, 64);
+  const earthMaterial = new THREE.MeshBasicMaterial({map: earthTexture});
+  const earth = new THREE.Mesh(earthGeometry, earthMaterial);
+  scene.add(earth);
 
-    window.addEventListener('resize', () => {
-        camera.aspect = window.innerWidth/window.innerHeight;
-        camera.updateProjectionMatrix();
-        renderer.setSize(window.innerWidth, window.innerHeight);
-    });
+  // Vessel
+  const vesselGeometry = new THREE.SphereGeometry(100e3, 16, 16);
+  const vesselMaterial = new THREE.MeshBasicMaterial({color: 0xff0000});
+  const vessel = new THREE.Mesh(vesselGeometry, vesselMaterial);
+  scene.add(vessel);
 
-    // Earth
-    const textureLoader = new THREE.TextureLoader();
-    const earthTexture = textureLoader.load('https://raw.githubusercontent.com/turban/webgl-earth/master/images/2_no_clouds_4k.jpg');
-    const earthGeometry = new THREE.SphereGeometry(6371e3, 64, 64);
-    const earthMaterial = new THREE.MeshBasicMaterial({map: earthTexture});
-    const earth = new THREE.Mesh(earthGeometry, earthMaterial);
-    scene.add(earth);
+  // Orbit parameters
+  const earthRadius = 6371e3;
+  const orbitAltitude = 400e3;
+  const orbitRadius = earthRadius + orbitAltitude;
+  const orbitSpeed = Math.sqrt(3.986e14 / orbitRadius); // m/s
 
-    // Vessel
-    const vesselGeometry = new THREE.SphereGeometry(100e3, 16, 16);
-    const vesselMaterial = new THREE.MeshBasicMaterial({color: 0xff0000});
-    const vessel = new THREE.Mesh(vesselGeometry, vesselMaterial);
-    scene.add(vessel);
+  function animate() {
+    requestAnimationFrame(animate);
+    controls.update();
 
-    // Orbit parameters
-    const earthRadius = 6371e3;
-    const orbitAltitude = 400e3;
-    const orbitRadius = earthRadius + orbitAltitude;
-    const orbitSpeed = Math.sqrt(3.986e14 / orbitRadius); // m/s
+    // Real-time UTC
+    const now = new Date();
+    document.getElementById('utc-time').textContent = now.toISOString().replace('T', ' ').split('.')[0];
 
-    // Animate
-    function animate() {
-        requestAnimationFrame(animate);
-        controls.update();
+    // Vessel orbit
+    const seconds = now.getTime() / 1000;
+    const angle = (seconds * orbitSpeed / orbitRadius) % (2*Math.PI);
+    vessel.position.set(orbitRadius * Math.cos(angle), 0, orbitRadius * Math.sin(angle));
 
-        // Real-time UTC
-        const now = new Date();
-        document.getElementById('utc-time').textContent = now.toISOString().replace('T', ' ').split('.')[0];
+    renderer.render(scene, camera);
+  }
 
-        // Vessel orbit
-        const seconds = now.getTime() / 1000;
-        const angle = (seconds * orbitSpeed / orbitRadius) % (2*Math.PI);
-        vessel.position.set(orbitRadius * Math.cos(angle), 0, orbitRadius * Math.sin(angle));
-
-        renderer.render(scene, camera);
-    }
-    animate();
+  animate();
 </script>
 </body>
 </html>
