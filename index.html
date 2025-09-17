@@ -162,7 +162,7 @@ function animate(){
     // Compute mean motion
     const mu = planetGM[v.data.centralBody];
     const n = Math.sqrt(mu/Math.pow(v.data.a,3)); // rad/s
-    const M = v.data.M0 + n*(now - v.data.epoch);
+    const M = v.data.M0 - n*(now - v.data.epoch);
     const pos = keplerToCartesian(v.data.a,v.data.e,v.data.i,v.data.raan,v.data.argPeri,M);
     v.mesh.position.copy(pos);
 
@@ -172,16 +172,19 @@ function animate(){
     const height = 2 * Math.tan(fov/2) * distance;
     const scale = (11 / window.innerHeight) * height;
     v.mesh.scale.set(scale, scale, 1);
-
-    // Label fixed 14px
-    const labelOffset = new THREE.Vector3(-2.5e5,0,0);
-    const labelPos = pos.clone().add(labelOffset);
-    const vector = labelPos.clone().project(camera);
-    const x=(vector.x*0.5+0.5)*window.innerWidth;
-    const y=(-vector.y*0.5+0.5)*window.innerHeight;
-    labels[i].style.transform=`translate(-50%,-50%) translate(${x}px,${y}px) scale(1)`;
-    labels[i].style.display='block';
-    labels[i].style.fontSize='14px';
+    
+    // Label at same position as sprite
+    const vector = pos.clone().project(camera);
+    let x = (vector.x*0.5 + 0.5) * window.innerWidth;
+    let y = (-vector.y*0.5 + 0.5) * window.innerHeight;
+    
+    // Optional: clamp to screen edges
+    x = Math.min(window.innerWidth - 50, Math.max(50, x));
+    y = Math.min(window.innerHeight - 20, Math.max(20, y));
+    
+    labels[i].style.transform = `translate(-50%,-50%) translate(${x}px,${y}px)`;
+    labels[i].style.display = 'block';
+    labels[i].style.fontSize = '14px';
   });
 
   document.getElementById('utcTime').textContent=new Date().toISOString().replace('T',' ').replace('Z',' UTC');
