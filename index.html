@@ -110,27 +110,43 @@ function createPlanet(name){
     document.body.appendChild(div);
     labels.push(div);
 
-    // Orbit line
-    const steps=256; const points=[];
-    for(let j=0;j<=steps;j++){
-      const M = 2*Math.PI*j/steps;
-      points.push(keplerToCartesian(v.a,v.e,v.i,v.raan,v.argPeri,M));
-    }
-    const geometry = new THREE.BufferGeometry().setFromPoints(points);
-    const opacities = new Float32Array(points.length);
-    for(let k=0;k<points.length;k++) opacities[k]=0.3*(points.length-k)/points.length;
-    geometry.setAttribute('alpha', new THREE.BufferAttribute(opacities,1));
-    const material = new THREE.ShaderMaterial({
-      uniforms:{color:{value:new THREE.Color(0xffffff)}},
-      vertexShader:`attribute float alpha; varying float vAlpha; void main(){vAlpha=alpha; gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.0);}`,
-      fragmentShader:`uniform vec3 color; varying float vAlpha; void main(){gl_FragColor=vec4(color,vAlpha);}`,
-      transparent:true,
-      depthTest:false
-    });
-    const line = new THREE.Line(geometry,material);
-    scene.add(line);
-    orbitLines.push({line:line,points:points});
-  });
+                                                // Orbit line with dynamic fade
+                                                const steps = 256;
+                                                const points = [];
+                                                const alphas = new Float32Array(steps + 1);
+                                                for (let j = 0; j <= steps; j++) {
+                                                    const M = 2 * Math.PI * j / steps;
+                                                    points.push(keplerToCartesian(v.a, v.e, v.i, v.raan, v.argPeri, M));
+                                                    alphas[j] = 0; // initially invisible
+                                                }
+                                                
+                                                const geometry = new THREE.BufferGeometry().setFromPoints(points);
+                                                geometry.setAttribute('alpha', new THREE.BufferAttribute(alphas, 1));
+                                                
+                                                const material = new THREE.ShaderMaterial({
+                                                    uniforms: { color: { value: new THREE.Color(0xffffff) } },
+                                                    vertexShader: `
+                                                        attribute float alpha;
+                                                        varying float vAlpha;
+                                                        void main() {
+                                                            vAlpha = alpha;
+                                                            gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+                                                        }
+                                                    `,
+                                                    fragmentShader: `
+                                                        uniform vec3 color;
+                                                        varying float vAlpha;
+                                                        void main() {
+                                                            gl_FragColor = vec4(color, vAlpha);
+                                                        }
+                                                    `,
+                                                    transparent: true,
+                                                    depthTest: false
+                                                });
+                                                
+                                                const line = new THREE.Line(geometry, material);
+                                                scene.add(line);
+                                                orbitLines.push({ line: line, points: points, alphas: alphas });
 }
 createPlanet(currentPlanet);
 document.getElementById('planetDropdown').addEventListener('change',e=>{currentPlanet=e.target.value;createPlanet(currentPlanet);});
