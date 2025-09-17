@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<title>PMC Space International | KSP RSS/RO Live</title>
+<title>KSP Tracker Final Moving Vessels</title>
 <style>
 html, body {margin:0; height:100%; overflow:hidden; background:#000; font-family:sans-serif; color:#fff;}
 #timeLabel {position:fixed; bottom:10px; background: transparent; padding:6px 10px; border-radius:0px; width: 100%; text-align: center;}
@@ -25,6 +25,7 @@ html, body {margin:0; height:100%; overflow:hidden; background:#000; font-family
     line-height: 3rem;
   }
 </style>
+
 </head>
 <body>
 
@@ -47,10 +48,14 @@ html, body {margin:0; height:100%; overflow:hidden; background:#000; font-family
 
 <script src="https://cdn.jsdelivr.net/npm/three@0.141.0/build/three.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/three@0.141.0/examples/js/controls/OrbitControls.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/fflate@0.7.5/umd/fflate.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.141.0/examples/js/loaders/EXRLoader.js"></script>
 <script>
 // Constants
 const planetGM = { earth: 3.986004418e14, moon: 4.9048695e12, mars: 4.282837e13 };
 const planetTextures = { earth:'earth.jpg', moon:'moon.png', mars:'mars.jpg' };
+
+
 
 // Vessels
 let vessels = []; // empty initially
@@ -86,6 +91,20 @@ controls.panSpeed = 0.5;            // optional: slower panning
 controls.minDistance = 2e5;         // closest you can zoom in
 controls.maxDistance = 5e7;         // farthest you can zoom out         
 
+// Load EXR environment
+const loader = new THREE.TextureLoader();
+loader.load(
+  'starmap.jpg',  // replace with your PNG URL
+  function (texture) {
+    texture.mapping = THREE.EquirectangularReflectionMapping;
+    scene.background = texture;     // sets the background
+    scene.environment = texture;    // affects reflections & PBR materials
+  },
+  undefined,
+  function (err) {
+    console.error('Failed to load PNG texture:', err);
+  }
+);
 
 
 scene.add(new THREE.AmbientLight(0xffffff,0.6));
