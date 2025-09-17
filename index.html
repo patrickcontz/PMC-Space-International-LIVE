@@ -2,13 +2,13 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<title>KSP Tracker Fixed</title>
+<title>KSP Tracker Final Fading</title>
 <style>
 html, body {margin:0; height:100%; overflow:hidden; background:#000; font-family:sans-serif; color:#fff;}
 #timeLabel {position:absolute; top:10px; left:10px; background:rgba(0,0,0,0.6); padding:6px 10px; border-radius:6px;}
 #planetSelector {position:absolute; top:50px; left:10px; background:rgba(0,0,0,0.6); padding:6px 10px; border-radius:6px;}
-.label {color:white; font-size:12px; position:absolute; pointer-events:none; white-space:nowrap;}
-#infoPanel {position:absolute; left:0; top:100px; width:200px; background:rgba(0,0,0,0.8); padding:10px; border-radius:6px; display:none;}
+.label {color:white; font-size:14px; position:absolute; pointer-events:none; white-space:nowrap; text-shadow:0 0 4px #000;}
+#infoPanel {position:absolute; left:0; top:100px; width:250px; background:rgba(0,0,0,0.8); padding:10px; border-radius:6px; display:none;}
 #infoPanel a {color:cyan; text-decoration:none;}
 </style>
 </head>
@@ -72,7 +72,7 @@ function createPlanet(name){
 
   // Remove old vessels/orbits/labels
   vesselSprites.forEach(v=>scene.remove(v.mesh));
-  orbitLines.forEach(l=>scene.remove(l));
+  orbitLines.forEach(l=>scene.remove(l.line));
   labels.forEach(l=>l.remove());
   vesselSprites=[]; orbitLines=[]; labels=[];
 
@@ -91,15 +91,38 @@ function createPlanet(name){
     document.body.appendChild(div);
     labels.push(div);
 
-    // Orbit
+    // Orbit line with fade behind vessel
     const steps=256; const points=[];
     for(let j=0;j<=steps;j++){
       const M = 2*Math.PI*j/steps;
       points.push(keplerToCartesian(v.a,v.e,v.i,v.raan,v.argPeri,M));
     }
-    const lineGeom = new THREE.BufferGeometry().setFromPoints(points);
-    const lineMat = new THREE.LineBasicMaterial({color:0xffffff, transparent:true, opacity:0.4});
-    const line = new THREE.Line(lineGeom,lineMat);
+    const geometry = new THREE.BufferGeometry().setFromPoints(points);
+    // Add opacity attribute along line
+    const opacities = new Float32Array(points.length);
+    for(let k=0;k<points.length;k++) opacities[k]=0.3*k/points.length;
+    geometry.setAttribute('alpha', new THREE.BufferAttribute(opacities,1));
+    const material = new THREE.ShaderMaterial({
+      uniforms:{color:{value:new THREE.Color(0xffffff)}},
+      vertexShader:`
+        attribute float alpha;
+        varying float vAlpha;
+        void main() {
+          vAlpha = alpha;
+          gl_Position = projectionMatrix * modelViewMatrix * vec4(position,1.0);
+        }
+      `,
+      fragmentShader:`
+        uniform vec3 color;
+        varying float vAlpha;
+        void main() {
+          gl_FragColor = vec4(color,vAlpha);
+        }
+      `,
+      transparent:true,
+      depthTest:false
+    });
+    const line = new THREE.Line(geometry,material);
     scene.add(line);
     orbitLines.push({line:line,points:points});
   });
@@ -133,7 +156,7 @@ function animate(){
   vesselSprites.forEach((v,i)=>{
     const pos = keplerToCartesian(v.data.a,v.data.e,v.data.i,v.data.raan,v.data.argPeri,v.data.M0);
     v.mesh.position.copy(pos);
-    const scale=25*(camera.position.distanceTo(pos)/1e7); 
+    const scale=2e5; // fixed bigger size
     v.mesh.scale.set(scale,scale,1);
 
     // label
