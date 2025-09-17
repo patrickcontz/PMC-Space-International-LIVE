@@ -2,12 +2,16 @@
 <html lang="en">
 <head>
 <meta charset="utf-8" />
-<title>KSP Tracker Final</title>
+<title>PMC Space International | KSP RSS/RO LIVE</title>
 <style>
-  html, body {margin:0; height:100%; overflow:hidden; background:#000; color:#fff; font-family:sans-serif;}
-  #timeLabel {position:absolute; top:10px; left:10px; background:rgba(0,0,0,0.6); padding:6px 10px; border-radius:6px;}
-  #planetSelector {position:absolute; top:50px; left:10px; background:rgba(0,0,0,0.6); padding:6px 10px; border-radius:6px;}
-  .label {color:white; font-size:12px; position:absolute; pointer-events:none; white-space:nowrap;}
+  html, body {margin:0; height:100%; overflow:hidden; background:#000; font-family:sans-serif;}
+  #timeLabel {position:absolute; top:10px; left:10px; background:rgba(0,0,0,0.6); padding:6px 10px; border-radius:6px; color:#fff;}
+  #planetSelector {position:absolute; top:50px; left:10px; background:rgba(0,0,0,0.6); padding:6px 10px; border-radius:6px; color:#fff;}
+  #infoPanel {
+    position:absolute; left:10px; top:100px; width:220px; padding:10px; background:rgba(0,0,0,0.7);
+    border-radius:6px; color:white; display:none;
+  }
+  #infoPanel a {color:#0af; text-decoration:none;}
 </style>
 </head>
 <body>
@@ -19,6 +23,7 @@
     <option value="mars">Mars</option>
   </select>
 </div>
+<div id="infoPanel"></div>
 
 <script src="https://cdn.jsdelivr.net/npm/three@0.141.0/build/three.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/three@0.141.0/examples/js/controls/OrbitControls.js"></script>
@@ -44,7 +49,11 @@ const vessels = [
     "raan": 0,
     "argPeri": 0,
     "M0": 0,
-    "info": {"name":"ISS Recreation"}
+    "info": {
+      "name":"ISS Recreation",
+      "description":"International Space Station recreated in KSP RSS/RO.",
+      "youtube":"https://www.youtube.com/watch?v=VIDEO1"
+    }
   },
   {
     "id":"apollo8_recreation",
@@ -57,7 +66,11 @@ const vessels = [
     "raan": 0,
     "argPeri": 0,
     "M0": 0,
-    "info":{"name":"Apollo 8 Recreation"}
+    "info":{
+      "name":"Apollo 8 Recreation",
+      "description":"First crewed mission to orbit the Moon, recreated in KSP RSS/RO.",
+      "youtube":"https://www.youtube.com/watch?v=VIDEO2"
+    }
   }
 ];
 
@@ -73,9 +86,7 @@ document.body.appendChild(renderer.domElement);
 const controls = new THREE.OrbitControls(camera, renderer.domElement);
 
 // --- Light ---
-const ambientLight = new THREE.AmbientLight(0xaaaaaa, 0.6);
-scene.add(ambientLight);
-
+scene.add(new THREE.AmbientLight(0xaaaaaa, 0.6));
 const directionalLight = new THREE.DirectionalLight(0xffffff, 1);
 directionalLight.position.set(5e6,5e6,5e6);
 scene.add(directionalLight);
@@ -83,9 +94,9 @@ scene.add(directionalLight);
 // --- Global variables ---
 let currentPlanet = 'earth';
 let planetMesh;
-let vesselMeshes = [];
+let vesselSprites = [];
 let orbitLines = [];
-let labels = [];
+let infoPanel = document.getElementById('infoPanel');
 
 // --- Keplerian -> Cartesian ---
 function keplerToCartesian(a,e,i,raan,argPeri,M){
@@ -107,46 +118,40 @@ function keplerToCartesian(a,e,i,raan,argPeri,M){
 
 // --- Planet creation ---
 function createPlanet(name){
-  currentPlanet = name;
-  
+  currentPlanet=name;
   if(planetMesh) scene.remove(planetMesh);
   const texture = new THREE.TextureLoader().load(planetTextures[name]);
-  const geometry = new THREE.SphereGeometry(name==='moon'?1737e3: name==='earth'?6371e3:3390e3, 64, 64);
-  const material = new THREE.MeshStandardMaterial({map:texture});
-  planetMesh = new THREE.Mesh(geometry, material);
+  const geometry = new THREE.SphereGeometry(name==='moon'?1737e3: name==='earth'?6371e3:3390e3, 64,64);
+  planetMesh = new THREE.Mesh(geometry, new THREE.MeshStandardMaterial({map:texture}));
   scene.add(planetMesh);
 
-  // remove old vessels, lines, labels
-  vesselMeshes.forEach(v=>scene.remove(v.mesh));
+  // remove old vessels, lines
+  vesselSprites.forEach(v=>scene.remove(v.sprite));
   orbitLines.forEach(l=>scene.remove(l));
-  labels.forEach(l=>l.remove());
-  vesselMeshes=[]; orbitLines=[]; labels=[];
+  vesselSprites=[]; orbitLines=[]; infoPanel.style.display='none';
 
   // add vessels for current planet
   vessels.filter(v=>v.centralBody===name).forEach(v=>{
-    // vessel sphere
-    const s = new THREE.Mesh(new THREE.SphereGeometry(5e4,8,8), new THREE.MeshBasicMaterial({color:0xffffff}));
-    scene.add(s);
-    vesselMeshes.push({mesh:s, data:v});
+    // vessel as circle sprite
+    const spriteMaterial = new THREE.SpriteMaterial({color:0xffffff});
+    const sprite = new THREE.Sprite(spriteMaterial);
+    sprite.scale.set(1.2e5,1.2e5,1);
+    scene.add(sprite);
+    sprite.userData = v; // attach data
+    vesselSprites.push({sprite:sprite, data:v});
 
     // orbit line
-    const steps=256, points=[];
+    const points=[];
+    const steps=256;
     for(let j=0;j<=steps;j++){
       const M = 2*Math.PI*j/steps;
       points.push(keplerToCartesian(v.a,v.e,v.i,v.raan,v.argPeri,M));
     }
     const geometryLine = new THREE.BufferGeometry().setFromPoints(points);
-    const materialLine = new THREE.LineBasicMaterial({color:0xffffff, transparent:true, opacity:0.3});
+    const materialLine = new THREE.LineBasicMaterial({color:0xffffff, opacity:0.3, transparent:true});
     const line = new THREE.Line(geometryLine, materialLine);
     scene.add(line);
     orbitLines.push(line);
-
-    // label
-    const div = document.createElement('div');
-    div.className='label';
-    div.innerText=v.info.name;
-    document.body.appendChild(div);
-    labels.push(div);
   });
 }
 createPlanet(currentPlanet);
@@ -156,41 +161,40 @@ document.getElementById('planetDropdown').addEventListener('change', e=>{
   createPlanet(e.target.value);
 });
 
+// --- Raycaster for clicks ---
+const raycaster = new THREE.Raycaster();
+const mouse = new THREE.Vector2();
+window.addEventListener('click', event=>{
+  mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
+  mouse.y = -(event.clientY / window.innerHeight) * 2 + 1;
+  raycaster.setFromCamera(mouse, camera);
+  const intersects = raycaster.intersectObjects(vesselSprites.map(v=>v.sprite));
+  if(intersects.length>0){
+    const data = intersects[0].object.userData.info;
+    infoPanel.innerHTML = `<b>${data.name}</b><br>${data.description}<br><a href="${data.youtube}" target="_blank">YouTube Link</a>`;
+    infoPanel.style.display='block';
+  } else {
+    infoPanel.style.display='none';
+  }
+});
+
 // --- Animation ---
 function animate(){
   requestAnimationFrame(animate);
+  const now = Date.now()/1000;
 
-  // slow planet rotation (24h for Earth)
-  const rotFactor = 1/60; // scale rotation to speed up frame update
+  // planet rotation (24h Earth)
+  const rotFactor = 1/60;
   if(currentPlanet==='earth') planetMesh.rotation.y += (2*Math.PI)/(24*60*60)*rotFactor;
   if(currentPlanet==='moon') planetMesh.rotation.y += (2*Math.PI)/(27.3*24*60*60)*rotFactor;
   if(currentPlanet==='mars') planetMesh.rotation.y += (2*Math.PI)/(24.6*60*60)*rotFactor;
 
   // update vessels
-  const now = Date.now()/1000; // seconds
-  vesselMeshes.forEach((v,i)=>{
-    const meanMotion = Math.sqrt(398600.4418/(v.data.a*v.data.a*v.data.a)); // rough mu=Earth km^3/s^2
+  vesselSprites.forEach((v,i)=>{
+    const meanMotion = Math.sqrt(398600.4418/(v.data.a*v.data.a*v.data.a));
     const M = ((now - v.data.epoch)*meanMotion) % (2*Math.PI);
     const pos = keplerToCartesian(v.data.a,v.data.e,v.data.i,v.data.raan,v.data.argPeri,M);
-    v.mesh.position.copy(pos);
-
-    // label above vessel
-    const vector = pos.clone().project(camera);
-    const x = (vector.x*0.5+0.5)*window.innerWidth;
-    const y = (-vector.y*0.5+0.5)*window.innerHeight - 10;
-    labels[i].style.transform = `translate(-50%,-50%) translate(${x}px,${y}px)`;
-
-    // fade orbit behind vessel
-    const line = orbitLines[i];
-    const positions = line.geometry.attributes.position.array;
-    const segments = positions.length/3;
-    const alphaArray = new Float32Array(segments*3);
-    const segIndex = Math.floor(M/(2*Math.PI)*segments);
-    for(let j=0;j<segments;j++){
-      const alpha = j <= segIndex ? 1.0 : 0.1;
-      alphaArray[j*3]=alphaArray[j*3+1]=alphaArray[j*3+2]=alpha;
-    }
-    line.geometry.setAttribute('color', new THREE.BufferAttribute(alphaArray,3));
+    v.sprite.position.copy(pos);
   });
 
   document.getElementById('utcTime').textContent = new Date().toISOString().replace('T',' ').replace('Z',' UTC');
