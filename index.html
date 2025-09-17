@@ -171,24 +171,26 @@ function animate(){
   if(currentPlanet==='moon') planetMesh.rotation.y += (2*Math.PI)/(27.3*24*60*60)/60;
   if(currentPlanet==='mars') planetMesh.rotation.y += (2*Math.PI)/(24.6*60*60)/60;
 
-  vesselSprites.forEach(v=>{
+vesselSprites.forEach(v=>{
     const mu = planetGM[v.data.centralBody];
     const n = Math.sqrt(mu / Math.pow(v.data.a,3));
     const M = v.data.M0 + n*(now - v.data.epoch); // prograde
     const pos = keplerToCartesian(v.data.a,v.data.e,v.data.i,v.data.raan,v.data.argPeri,M);
 
-    // Vessel sprite
+    // Update vessel sprite
     v.mesh.position.copy(pos);
     const distance = camera.position.distanceTo(pos);
-    const height = 2 * Math.tan(camera.fov * Math.PI/180/2) * distance;
-    const scale = (11 / window.innerHeight) * height;
-    v.mesh.scale.set(scale, scale, 1);
+    const fov = camera.fov * Math.PI / 180;
+    const height = 2 * Math.tan(fov / 2) * distance;
+    const spriteScale = (11 / window.innerHeight) * height;
+    v.mesh.scale.set(spriteScale, spriteScale, 1);
 
-    // Label sprite
-    v.label.position.copy(pos.clone().add(new THREE.Vector3(0,2.5e5,0))); // above vessel
+    // Update label sprite **directly above the vessel**
+    const labelOffset = new THREE.Vector3(0, 1.5e5, 0); // tweak Y offset
+    v.label.position.copy(pos.clone().add(labelOffset));
     const labelScale = (14 / window.innerHeight) * height;
-    v.label.scale.set(labelScale * 8, labelScale, 1);
-  });
+    v.label.scale.set(labelScale * 8, labelScale, 1); // wide enough for text
+});
 
   document.getElementById('utcTime').textContent=new Date().toISOString().replace('T',' ').replace('Z',' UTC');
   controls.update(); renderer.render(scene,camera);
