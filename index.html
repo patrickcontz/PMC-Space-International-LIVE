@@ -174,19 +174,14 @@ function animate(){
     v.mesh.scale.set(scale, scale, 1);
     
     // Label follows sprite exactly
-    const spritePos = v.mesh.position.clone();
-    const vector = spritePos.project(camera);
-    
-    let x = (vector.x * 0.5 + 0.5) * window.innerWidth;
-    let y = (-vector.y * 0.5 + 0.5) * window.innerHeight;
-    
-    // Clamp to screen edges so it never goes off screen
-    x = Math.min(window.innerWidth - 10, Math.max(10, x));
-    y = Math.min(window.innerHeight - 10, Math.max(10, y));
+    const spriteScreenPos = v.mesh.position.clone().project(camera);
+    const x = (spriteScreenPos.x * 0.5 + 0.5) * window.innerWidth;
+    const y = (-spriteScreenPos.y * 0.5 + 0.5) * window.innerHeight;
     
     labels[i].style.transform = `translate(-50%,-50%) translate(${x}px,${y}px)`;
     labels[i].style.display = 'block';
     labels[i].style.fontSize = '14px';
+
 
   });
 
