@@ -2,182 +2,79 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<title>PMC Space International | KSP RSS/RO LIVE</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>PMC Space International LIVE</title>
 <style>
-  body { margin: 0; overflow: hidden; font-family: sans-serif; }
-  #infoPanel {
-    position: fixed;
-    top: 10px; left: 10px;
-    background: rgba(0,0,0,0.7);
-    color: white; padding: 10px;
-    max-width: 300px;
-    display: none;
-  }
-  #planetSelect {
-    position: fixed;
-    top: 10px; right: 10px;
-    background: rgba(0,0,0,0.7);
-    color: white; padding: 5px;
-  }
-  #utcTime {
-    position: fixed;
-    bottom: 10px; left: 10px;
-    color: white;
-    font-size: 18px;
-  }
+  body { margin: 0; overflow: hidden; background: black; }
+  #info { position: absolute; top: 10px; left: 10px; color: white; font-family: sans-serif; z-index: 1; }
 </style>
 </head>
 <body>
-<select id="planetSelect">
-  <option value="earth">Earth</option>
-  <option value="moon">Moon</option>
-  <option value="mars">Mars</option>
-</select>
-
-<div id="infoPanel">
-  <strong id="vesselName"></strong><br>
-  <span id="vesselDesc"></span><br>
-  <a id="vesselYoutube" href="#" target="_blank">YouTube</a>
-</div>
-
-<div id="utcTime"></div>
+<div id="info">UTC Time: <span id="utc-time"></span></div>
 
 <script type="module">
+// Import Three.js and OrbitControls from CDN
 import * as THREE from 'https://cdn.jsdelivr.net/npm/three@0.158.0/build/three.module.js';
 import { OrbitControls } from 'https://cdn.jsdelivr.net/npm/three@0.158.0/examples/jsm/controls/OrbitControls.js';
 
-// ---------- Scene Setup ----------
+// Scene, camera, renderer
 const scene = new THREE.Scene();
-const camera = new THREE.PerspectiveCamera(60, window.innerWidth/window.innerHeight, 1, 1e8);
-camera.position.set(0, 0, 15e6);
-
-const renderer = new THREE.WebGLRenderer({antialias:true});
+const camera = new THREE.PerspectiveCamera(60, window.innerWidth/window.innerHeight, 0.1, 1e8);
+camera.position.set(0, 0, 15e6); // zoomed out to see Earth
+const renderer = new THREE.WebGLRenderer({antialias: true});
 renderer.setSize(window.innerWidth, window.innerHeight);
 document.body.appendChild(renderer.domElement);
 
+// Orbit controls
 const controls = new OrbitControls(camera, renderer.domElement);
+controls.enableDamping = true;
+controls.dampingFactor = 0.05;
 
-// ---------- Planets ----------
-const planetTextures = {
-  earth: 'https://upload.wikimedia.org/wikipedia/commons/9/97/The_Earth_seen_from_Apollo_17.jpg',
-  moon: 'https://upload.wikimedia.org/wikipedia/commons/e/e1/FullMoon2010.jpg',
-  mars: 'https://upload.wikimedia.org/wikipedia/commons/0/02/OSIRIS_Mars_true_color.jpg'
-};
-
-let planetMesh;
-function createPlanet(name) {
-  if (planetMesh) scene.remove(planetMesh);
-  const tex = new THREE.TextureLoader().load(planetTextures[name]);
-  const radius = { earth:6371000, moon:1737100, mars:3389500 }[name];
-  const geometry = new THREE.SphereGeometry(radius, 64, 64);
-  const material = new THREE.MeshPhongMaterial({ map: tex });
-  planetMesh = new THREE.Mesh(geometry, material);
-  scene.add(planetMesh);
-}
-
-// ---------- Lights ----------
-const light = new THREE.PointLight(0xffffff, 2);
-light.position.set(0,0,0);
-scene.add(light);
-scene.add(new THREE.AmbientLight(0x333333));
-
-// ---------- Orbits Module ----------
-const OrbitModule = {
-  vessels: [],
-  updateAll(timeNow) {
-    this.vessels.forEach(v => {
-      const a = v.data.a;
-      const i = THREE.MathUtils.degToRad(v.data.i);
-      const e = v.data.e;
-      const n = Math.sqrt(3.986e14 / Math.pow(a,3)); // simplified mean motion
-      const M = n * (timeNow - v.data.epoch); // mean anomaly
-      const x = a*(Math.cos(M)-e);
-      const y = a*Math.sin(M)*Math.sqrt(1-e*e);
-      v.mesh.position.set(x, y*Math.cos(i), y*Math.sin(i));
-    });
-  },
-  addVessel(vesselData) {
-    const geom = new THREE.SphereGeometry(20000, 8, 8);
-    const mat = new THREE.MeshBasicMaterial({color:0xff0000});
-    const mesh = new THREE.Mesh(geom, mat);
-    scene.add(mesh);
-    this.vessels.push({mesh, data:vesselData});
-    mesh.userData = vesselData;
-  }
-};
-
-// ---------- Sample JSON ----------
-const vesselsJSON = [
-  {
-    "id":"iss_recreation",
-    "centralBody":"earth",
-    "epoch": Date.now()/1000 - 3600,
-    "a":6771000,
-    "e":0.0005,
-    "i":51.64,
-    "info":{"name":"ISS Recreation","description":"KSP RSS/RO","youtube":"https://youtu.be/VIDEO1"}
-  },
-  {
-    "id":"apollo8_recreation",
-    "centralBody":"moon",
-    "epoch": Date.now()/1000 - 3600,
-    "a":1838000,
-    "e":0.05,
-    "i":1.5,
-    "info":{"name":"Apollo 8","description":"Moon orbit KSP","youtube":"https://youtu.be/VIDEO2"}
-  }
-];
-
-vesselsJSON.forEach(v=>OrbitModule.addVessel(v));
-
-// ---------- Raycaster for clicks ----------
-const raycaster = new THREE.Raycaster();
-const mouse = new THREE.Vector2();
-window.addEventListener('click', e => {
-  mouse.x = (e.clientX/window.innerWidth)*2 - 1;
-  mouse.y = -(e.clientY/window.innerHeight)*2 + 1;
-  raycaster.setFromCamera(mouse, camera);
-  const intersects = raycaster.intersectObjects(OrbitModule.vessels.map(v=>v.mesh));
-  if(intersects.length>0){
-    const d = intersects[0].object.userData.info;
-    document.getElementById('infoPanel').style.display='block';
-    document.getElementById('vesselName').innerText=d.name;
-    document.getElementById('vesselDesc').innerText=d.description;
-    const yt = document.getElementById('vesselYoutube');
-    yt.href=d.youtube; yt.innerText="YouTube";
-  } else {
-    document.getElementById('infoPanel').style.display='none';
-  }
+// Resize
+window.addEventListener('resize', () => {
+    camera.aspect = window.innerWidth/window.innerHeight;
+    camera.updateProjectionMatrix();
+    renderer.setSize(window.innerWidth, window.innerHeight);
 });
 
-// ---------- UTC Clock ----------
-const utcEl = document.getElementById('utcTime');
-function updateUTC() {
-  const d = new Date();
-  utcEl.innerText = d.toUTCString();
-}
+// Earth
+const textureLoader = new THREE.TextureLoader();
+const earthTexture = textureLoader.load('https://raw.githubusercontent.com/turban/webgl-earth/master/images/2_no_clouds_4k.jpg');
+const earthGeometry = new THREE.SphereGeometry(6371e3, 64, 64); // Earth radius in meters
+const earthMaterial = new THREE.MeshBasicMaterial({map: earthTexture});
+const earth = new THREE.Mesh(earthGeometry, earthMaterial);
+scene.add(earth);
 
-// ---------- Planet switch ----------
-const selectEl = document.getElementById('planetSelect');
-selectEl.addEventListener('change', ()=>createPlanet(selectEl.value));
-createPlanet('earth');
+// Example vessel orbiting Earth
+const vesselGeometry = new THREE.SphereGeometry(100e3, 16, 16); // vessel size
+const vesselMaterial = new THREE.MeshBasicMaterial({color: 0xff0000});
+const vessel = new THREE.Mesh(vesselGeometry, vesselMaterial);
+scene.add(vessel);
 
-// ---------- Animate ----------
-function animate(){
-  requestAnimationFrame(animate);
-  OrbitModule.updateAll(Date.now()/1000);
-  updateUTC();
-  controls.update();
-  renderer.render(scene,camera);
+// Orbit parameters (example circular orbit at 400 km altitude)
+const earthRadius = 6371e3;
+const orbitAltitude = 400e3;
+const orbitRadius = earthRadius + orbitAltitude;
+const orbitSpeed = Math.sqrt(3.986e14 / orbitRadius); // m/s, Earth's GM
+
+// Animate
+const clock = new THREE.Clock();
+function animate() {
+    requestAnimationFrame(animate);
+    controls.update();
+
+    // Real-time UTC
+    const now = new Date();
+    document.getElementById('utc-time').textContent = now.toISOString().replace('T', ' ').split('.')[0];
+
+    // Update vessel position based on UTC time
+    const seconds = now.getTime() / 1000;
+    const angle = (seconds * orbitSpeed / orbitRadius) % (2*Math.PI);
+    vessel.position.set(orbitRadius * Math.cos(angle), 0, orbitRadius * Math.sin(angle));
+
+    renderer.render(scene, camera);
 }
 animate();
-
-// ---------- Resize ----------
-window.addEventListener('resize', ()=>{
-  camera.aspect=window.innerWidth/window.innerHeight;
-  camera.updateProjectionMatrix();
-  renderer.setSize(window.innerWidth, window.innerHeight);
-});
 </script>
 </body>
 </html>
