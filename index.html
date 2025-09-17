@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<title>KSP Tracker Final Circle Sprite</title>
+<title>KSP Tracker Final Moving Vessels</title>
 <style>
 html, body {margin:0; height:100%; overflow:hidden; background:#000; font-family:sans-serif; color:#fff;}
 #timeLabel {position:absolute; top:10px; left:10px; background:rgba(0,0,0,0.6); padding:6px 10px; border-radius:6px;}
@@ -31,6 +31,14 @@ html, body {margin:0; height:100%; overflow:hidden; background:#000; font-family
 <script src="https://cdn.jsdelivr.net/npm/three@0.141.0/examples/js/controls/OrbitControls.js"></script>
 
 <script>
+// Constants
+const G = 6.67430e-11; // m^3 kg^-1 s^-2
+const planetGM = {
+  earth: 3.986004418e14,
+  moon: 4.9048695e12,
+  mars: 4.282837e13
+};
+
 // Planet textures
 const planetTextures = {earth:'earth.jpg', moon:'moon.png', mars:'mars.jpg'};
 
@@ -89,17 +97,16 @@ function createPlanet(name){
   vesselSprites=[]; orbitLines=[]; labels=[];
 
   vessels.filter(v=>v.centralBody===name).forEach(v=>{
-    // Sprite marker (11px on screen)
+    // Sprite marker
     const mat = new THREE.SpriteMaterial({map:circleTex, depthTest:false});
     const sprite = new THREE.Sprite(mat);
     sprite.renderOrder = 999;
     scene.add(sprite);
     vesselSprites.push({mesh:sprite,data:v});
 
-    // Label (14px)
+    // Label
     const div = document.createElement('div');
-    div.className='label'; 
-    div.innerText=v.info.name;
+    div.className='label'; div.innerText=v.info.name;
     document.body.appendChild(div);
     labels.push(div);
 
@@ -115,21 +122,8 @@ function createPlanet(name){
     geometry.setAttribute('alpha', new THREE.BufferAttribute(opacities,1));
     const material = new THREE.ShaderMaterial({
       uniforms:{color:{value:new THREE.Color(0xffffff)}},
-      vertexShader:`
-        attribute float alpha;
-        varying float vAlpha;
-        void main() {
-          vAlpha = alpha;
-          gl_Position = projectionMatrix * modelViewMatrix * vec4(position,1.0);
-        }
-      `,
-      fragmentShader:`
-        uniform vec3 color;
-        varying float vAlpha;
-        void main() {
-          gl_FragColor = vec4(color,vAlpha);
-        }
-      `,
+      vertexShader:`attribute float alpha; varying float vAlpha; void main(){vAlpha=alpha; gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.0);}`,
+      fragmentShader:`uniform vec3 color; varying float vAlpha; void main(){gl_FragColor=vec4(color,vAlpha);}`,
       transparent:true,
       depthTest:false
     });
@@ -159,15 +153,20 @@ function keplerToCartesian(a,e,i,raan,argPeri,M){
 function animate(){
   requestAnimationFrame(animate);
 
+  const now = Date.now()/1000; // seconds
   if(currentPlanet==='earth') planetMesh.rotation.y += (2*Math.PI)/(24*60*60)/60;
   if(currentPlanet==='moon') planetMesh.rotation.y += (2*Math.PI)/(27.3*24*60*60)/60;
   if(currentPlanet==='mars') planetMesh.rotation.y += (2*Math.PI)/(24.6*60*60)/60;
 
   vesselSprites.forEach((v,i)=>{
-    const pos = keplerToCartesian(v.data.a,v.data.e,v.data.i,v.data.raan,v.data.argPeri,v.data.M0);
+    // Compute mean motion
+    const mu = planetGM[v.data.centralBody];
+    const n = Math.sqrt(mu/Math.pow(v.data.a,3)); // rad/s
+    const M = v.data.M0 + n*(now - v.data.epoch);
+    const pos = keplerToCartesian(v.data.a,v.data.e,v.data.i,v.data.raan,v.data.argPeri,M);
     v.mesh.position.copy(pos);
 
-    // Sprite fixed 11px on screen
+    // Sprite fixed 11px
     const distance = camera.position.distanceTo(pos);
     const fov = camera.fov * (Math.PI/180);
     const height = 2 * Math.tan(fov/2) * distance;
@@ -175,12 +174,12 @@ function animate(){
     v.mesh.scale.set(scale, scale, 1);
 
     // Label fixed 14px
-    const labelOffset = new THREE.Vector3(-2.5e5, 0, 0);
+    const labelOffset = new THREE.Vector3(-2.5e5,0,0);
     const labelPos = pos.clone().add(labelOffset);
     const vector = labelPos.clone().project(camera);
-    const x=(vector.x*0.5 + 0.5)*window.innerWidth;
-    const y=(-vector.y*0.5 + 0.5)*window.innerHeight;
-    labels[i].style.transform=`translate(-50%,-50%) translate(${x}px,${y}px) scale(1)`; 
+    const x=(vector.x*0.5+0.5)*window.innerWidth;
+    const y=(-vector.y*0.5+0.5)*window.innerHeight;
+    labels[i].style.transform=`translate(-50%,-50%) translate(${x}px,${y}px) scale(1)`;
     labels[i].style.display='block';
     labels[i].style.fontSize='14px';
   });
