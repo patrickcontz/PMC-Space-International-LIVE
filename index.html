@@ -39,7 +39,7 @@ const vessels = [
   { "id":"apollo8_recreation","type":"keplerian","centralBody":"moon","epoch":1737176400,"a":1838000,"e":0.05,"i":1.5*Math.PI/180,"raan":0,"argPeri":0,"M0":0,"info":{"name":"Apollo 8 Recreation","description":"First crewed mission to orbit the Moon.","youtube":"https://www.youtube.com/watch?v=VIDEO2"} }
 ];
 
-// Scene
+// Scene setup
 const scene = new THREE.Scene();
 const camera = new THREE.PerspectiveCamera(60, window.innerWidth/window.innerHeight, 1, 1e8);
 camera.position.set(0,0,1.2e7);
@@ -61,62 +61,75 @@ function createCircleTexture(color='white', size=64){
 }
 const circleTex=createCircleTexture('white',64);
 
-// Global
+// Globals
 let currentPlanet='earth', planetMesh;
 let vesselSprites=[], orbitLines=[];
 
-// Planet creation
+// Planet + vessels
 function createPlanet(name){
   if(planetMesh) scene.remove(planetMesh);
+
   const radius = name==='moon'?1737e3:name==='earth'?6371e3:3390e3;
-  planetMesh = new THREE.Mesh(new THREE.SphereGeometry(radius,64,64),
-    new THREE.MeshStandardMaterial({map:new THREE.TextureLoader().load(planetTextures[name])}));
+  planetMesh = new THREE.Mesh(
+    new THREE.SphereGeometry(radius,64,64),
+    new THREE.MeshStandardMaterial({map:new THREE.TextureLoader().load(planetTextures[name])})
+  );
   scene.add(planetMesh);
 
-  vesselSprites.forEach(v=>scene.remove(v.mesh), scene.remove(v.label));
+  // cleanup old
+  vesselSprites.forEach(vs=>{
+    scene.remove(vs.mesh);
+    scene.remove(vs.label);
+  });
   orbitLines.forEach(o=>scene.remove(o.line));
   vesselSprites=[]; orbitLines=[];
 
-  vessels.filter(v=>v.centralBody===name).forEach((v,i)=>{
-    // Sprite indicator
+  vessels.filter(vessel=>vessel.centralBody===name).forEach((vessel,i)=>{
+    // Indicator
     const mat = new THREE.SpriteMaterial({map:circleTex, depthTest:false});
     const sprite = new THREE.Sprite(mat);
-    sprite.renderOrder=999; scene.add(sprite);
+    sprite.renderOrder=999; 
+    scene.add(sprite);
 
-    // Label as sprite
-    const canvas = document.createElement('canvas'); canvas.width=256; canvas.height=64;
-    const ctx = canvas.getContext('2d');
+    // Label
+    const canvas=document.createElement('canvas'); canvas.width=256; canvas.height=64;
+    const ctx=canvas.getContext('2d');
     ctx.font='Bold 32px sans-serif'; ctx.fillStyle='white'; ctx.textAlign='center'; ctx.textBaseline='middle';
-    ctx.fillText(v.info.name, 128,32);
-    const texture = new THREE.CanvasTexture(canvas);
-    const labelMat = new THREE.SpriteMaterial({map:texture, transparent:true});
-    const label = new THREE.Sprite(labelMat); scene.add(label);
+    ctx.fillText(vessel.info.name,128,32);
+    const texture=new THREE.CanvasTexture(canvas);
+    const labelMat=new THREE.SpriteMaterial({map:texture,transparent:true});
+    const label=new THREE.Sprite(labelMat); 
+    scene.add(label);
 
-    vesselSprites.push({mesh:sprite,label,label,data:v});
+    vesselSprites.push({mesh:sprite,label,data:vessel,orbitIndex:i});
 
     // Orbit line
     const steps=256; const points=[]; const alphas=new Float32Array(steps+1);
     for(let j=0;j<=steps;j++){
       const M=2*Math.PI*j/steps;
-      points.push(keplerToCartesian(v.a,v.e,v.i,v.raan,v.argPeri,M));
+      points.push(keplerToCartesian(vessel.a,vessel.e,vessel.i,vessel.raan,vessel.argPeri,M));
       alphas[j]=0;
     }
     const geometry=new THREE.BufferGeometry().setFromPoints(points);
     geometry.setAttribute('alpha', new THREE.BufferAttribute(alphas,1));
-    const material = new THREE.ShaderMaterial({
+    const material=new THREE.ShaderMaterial({
       uniforms:{color:{value:new THREE.Color(0xffffff)}},
-      vertexShader:`attribute float alpha; varying float vAlpha; void main(){vAlpha=alpha; gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.0);}`,
-      fragmentShader:`uniform vec3 color; varying float vAlpha; void main(){gl_FragColor=vec4(color,vAlpha);}`,
+      vertexShader:`attribute float alpha; varying float vAlpha; 
+        void main(){vAlpha=alpha; gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.0);}`,
+      fragmentShader:`uniform vec3 color; varying float vAlpha; 
+        void main(){gl_FragColor=vec4(color,vAlpha);}`,
       transparent:true, depthTest:false
     });
-    const line = new THREE.Line(geometry,material); scene.add(line);
+    const line=new THREE.Line(geometry,material); scene.add(line);
     orbitLines.push({line,points,alphas});
   });
 }
 createPlanet(currentPlanet);
-document.getElementById('planetDropdown').addEventListener('change',e=>{currentPlanet=e.target.value; createPlanet(currentPlanet);});
+document.getElementById('planetDropdown').addEventListener('change',e=>{
+  currentPlanet=e.target.value; createPlanet(currentPlanet);
+});
 
-// Kepler -> Cartesian
+// Kepler → Cartesian
 function keplerToCartesian(a,e,i,raan,argPeri,M){
   const E=M;
   let x=a*(Math.cos(E)-e); let y=a*Math.sqrt(1-e*e)*Math.sin(E); let z=0;
@@ -133,29 +146,26 @@ function animate(){
   requestAnimationFrame(animate);
   const now = Date.now()/1000;
 
-  // Planet rotation
+  // Rotate planet
   if(currentPlanet==='earth') planetMesh.rotation.y += (2*Math.PI)/(24*60*60)/60;
   if(currentPlanet==='moon') planetMesh.rotation.y += (2*Math.PI)/(27.3*24*60*60)/60;
   if(currentPlanet==='mars') planetMesh.rotation.y += (2*Math.PI)/(24.6*60*60)/60;
 
-  vesselSprites.forEach((v,i)=>{
-    const mu = planetGM[v.data.centralBody];
-    const n = Math.sqrt(mu/Math.pow(v.data.a,3));
-    const M = v.data.M0 - n*(now - v.data.epoch);
-    const pos = keplerToCartesian(v.data.a,v.data.e,v.data.i,v.data.raan,v.data.argPeri,M);
-    v.mesh.position.copy(pos);
-    v.label.position.copy(pos);
+  vesselSprites.forEach((vs,i)=>{
+    const mu = planetGM[vs.data.centralBody];
+    const n = Math.sqrt(mu/Math.pow(vs.data.a,3));
+    const M = vs.data.M0 - n*(now - vs.data.epoch);
+    const pos = keplerToCartesian(vs.data.a,vs.data.e,vs.data.i,vs.data.raan,vs.data.argPeri,M);
+    vs.mesh.position.copy(pos);
+    vs.label.position.copy(pos);
 
-    // Indicator scale
-    const dist = camera.position.distanceTo(pos);
-    v.mesh.scale.set(dist*0.0015, dist*0.0015, 1);
-    v.label.scale.set(dist*0.0008, dist*0.0008, 1);
-
-    // Label always faces camera
-    v.label.quaternion.copy(camera.quaternion);
+    const dist=camera.position.distanceTo(pos);
+    vs.mesh.scale.set(dist*0.0015, dist*0.0015, 1);
+    vs.label.scale.set(dist*0.0008, dist*0.0008, 1);
+    vs.label.quaternion.copy(camera.quaternion);
 
     // Orbit fade
-    const orbit=orbitLines[i];
+    const orbit=orbitLines[vs.orbitIndex];
     const idx=Math.floor(((M%(2*Math.PI))/(2*Math.PI))*orbit.points.length);
     for(let j=0;j<orbit.points.length;j++){
       const diff=(j-idx+orbit.points.length)%orbit.points.length;
@@ -169,13 +179,13 @@ function animate(){
 }
 animate();
 
-// Vessel click
+// Click handler
 renderer.domElement.addEventListener('pointerdown', e=>{
   const mouse=new THREE.Vector2();
-  mouse.x = (e.clientX/window.innerWidth)*2-1;
-  mouse.y = -(e.clientY/window.innerHeight)*2+1;
+  mouse.x=(e.clientX/window.innerWidth)*2-1;
+  mouse.y=-(e.clientY/window.innerHeight)*2+1;
   const ray=new THREE.Raycaster(); ray.setFromCamera(mouse,camera);
-  const hit = vesselSprites.find(v=>ray.intersectObject(v.mesh).length>0);
+  const hit=vesselSprites.find(v=>ray.intersectObject(v.mesh).length>0);
   if(hit){
     const v=hit.data;
     document.getElementById('vesselName').innerText=v.info.name;
@@ -185,7 +195,7 @@ renderer.domElement.addEventListener('pointerdown', e=>{
   }
 });
 
-window.addEventListener('resize', ()=>{
+window.addEventListener('resize',()=>{
   camera.aspect=window.innerWidth/window.innerHeight;
   camera.updateProjectionMatrix();
   renderer.setSize(window.innerWidth,window.innerHeight);
