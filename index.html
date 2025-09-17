@@ -161,12 +161,16 @@ function animate(){
     vs.mesh.position.copy(pos);
     vs.label.position.copy(pos);
 
-    // Bigger indicator
-    const dist=camera.position.distanceTo(pos);
-    vs.mesh.scale.set(dist*0.002, dist*0.002, 1);
+    // --- Indicator scaling with clamp ---
+    const dist = camera.position.distanceTo(pos);
+    let indicatorScale = dist * 0.002;
+    indicatorScale = Math.max(50000, indicatorScale); // min size
+    vs.mesh.scale.set(indicatorScale, indicatorScale, 1);
 
-    // Label scaled ~14px on screen
-    vs.label.scale.set(dist*0.001, dist*0.001, 1);
+    // --- Label scaling with clamp ---
+    let labelScale = dist * 0.001;
+    labelScale = Math.max(80000, labelScale); // min size so it never disappears
+    vs.label.scale.set(labelScale, labelScale, 1);
 
     // Label always faces camera but stays horizontal
     const camQuat = camera.quaternion.clone();
