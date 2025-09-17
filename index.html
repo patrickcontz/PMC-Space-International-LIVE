@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>PMC Space Internationalssssss LIVE</title>
+<title>PMC Space International LIVE</title>
 <style>
   body { margin: 0; overflow: hidden; background: black; }
   #info { position: absolute; top: 10px; left: 10px; color: white; font-family: sans-serif; z-index: 1; }
@@ -13,14 +13,13 @@
 <div id="info">UTC Time: <span id="utc-time"></span></div>
 
 <script type="module">
-  // Use full CDN URLs that work on GitHub Pages
   import * as THREE from 'https://cdn.jsdelivr.net/npm/three@0.158.0/build/three.module.js';
   import { OrbitControls } from 'https://cdn.jsdelivr.net/npm/three@0.158.0/examples/jsm/controls/OrbitControls.js';
 
-  // Scene setup
+  // Scene
   const scene = new THREE.Scene();
   const camera = new THREE.PerspectiveCamera(60, window.innerWidth/window.innerHeight, 0.1, 1e8);
-  camera.position.set(0, 0, 15e6);
+  camera.position.set(0, 0, 2e7);
 
   const renderer = new THREE.WebGLRenderer({ antialias: true });
   renderer.setSize(window.innerWidth, window.innerHeight);
@@ -32,46 +31,44 @@
   controls.dampingFactor = 0.05;
 
   window.addEventListener('resize', () => {
-    camera.aspect = window.innerWidth/window.innerHeight;
+    camera.aspect = window.innerWidth / window.innerHeight;
     camera.updateProjectionMatrix();
     renderer.setSize(window.innerWidth, window.innerHeight);
   });
 
   // Earth
-  const textureLoader = new THREE.TextureLoader();
-  const earthTexture = textureLoader.load('https://raw.githubusercontent.com/turban/webgl-earth/master/images/2_no_clouds_4k.jpg');
-  const earthGeometry = new THREE.SphereGeometry(6371e3, 64, 64);
+  const loader = new THREE.TextureLoader();
+  const earthTexture = loader.load('https://raw.githubusercontent.com/turban/webgl-earth/master/images/2_no_clouds_4k.jpg');
   const earthMaterial = new THREE.MeshBasicMaterial({ map: earthTexture });
+  const earthGeometry = new THREE.SphereGeometry(6371e3, 64, 64);
   const earth = new THREE.Mesh(earthGeometry, earthMaterial);
   scene.add(earth);
 
-  // Example vessel
-  const vesselGeometry = new THREE.SphereGeometry(100e3, 16, 16);
+  // Vessel
   const vesselMaterial = new THREE.MeshBasicMaterial({ color: 0xff0000 });
+  const vesselGeometry = new THREE.SphereGeometry(100e3, 16, 16);
   const vessel = new THREE.Mesh(vesselGeometry, vesselMaterial);
   scene.add(vessel);
 
-  // Orbit calculation
+  // Orbit constants
   const earthRadius = 6371e3;
-  const orbitAltitude = 400e3; // 400 km orbit
+  const orbitAltitude = 400e3;
   const orbitRadius = earthRadius + orbitAltitude;
-  const mu = 3.986e14; // Earth's standard gravitational parameter
+  const mu = 3.986e14;
   const orbitSpeed = Math.sqrt(mu / orbitRadius);
 
   // Animate
   function animate() {
     requestAnimationFrame(animate);
-    controls.update();
 
-    // UTC time
     const now = new Date();
     document.getElementById('utc-time').textContent = now.toISOString().replace('T', ' ').split('.')[0];
 
-    // Orbit calculation
     const seconds = now.getTime() / 1000;
     const angle = (seconds * orbitSpeed / orbitRadius) % (2 * Math.PI);
     vessel.position.set(orbitRadius * Math.cos(angle), 0, orbitRadius * Math.sin(angle));
 
+    controls.update();
     renderer.render(scene, camera);
   }
 
