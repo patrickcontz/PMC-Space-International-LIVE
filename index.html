@@ -91,13 +91,15 @@ function createPlanet(name){
     sprite.renderOrder=999; 
     scene.add(sprite);
 
-    // Label
+    // Label texture
     const canvas=document.createElement('canvas'); canvas.width=256; canvas.height=64;
     const ctx=canvas.getContext('2d');
-    ctx.font='Bold 32px sans-serif'; ctx.fillStyle='white'; ctx.textAlign='center'; ctx.textBaseline='middle';
+    ctx.font='Bold 48px sans-serif'; // higher res, will be scaled down
+    ctx.fillStyle='white'; ctx.textAlign='center'; ctx.textBaseline='middle';
     ctx.fillText(vessel.info.name,128,32);
     const texture=new THREE.CanvasTexture(canvas);
-    const labelMat=new THREE.SpriteMaterial({map:texture,transparent:true});
+    texture.minFilter = THREE.LinearFilter;
+    const labelMat=new THREE.SpriteMaterial({map:texture,transparent:true, depthTest:false});
     const label=new THREE.Sprite(labelMat); 
     scene.add(label);
 
@@ -151,37 +153,37 @@ function animate(){
   if(currentPlanet==='moon') planetMesh.rotation.y += (2*Math.PI)/(27.3*24*60*60)/60;
   if(currentPlanet==='mars') planetMesh.rotation.y += (2*Math.PI)/(24.6*60*60)/60;
 
-vesselSprites.forEach((vs,i)=>{
-  const mu = planetGM[vs.data.centralBody];
-  const n = Math.sqrt(mu/Math.pow(vs.data.a,3));
-  const M = vs.data.M0 - n*(now - vs.data.epoch);
-  const pos = keplerToCartesian(vs.data.a,vs.data.e,vs.data.i,vs.data.raan,vs.data.argPeri,M);
-  vs.mesh.position.copy(pos);
-  vs.label.position.copy(pos);
+  vesselSprites.forEach((vs,i)=>{
+    const mu = planetGM[vs.data.centralBody];
+    const n = Math.sqrt(mu/Math.pow(vs.data.a,3));
+    const M = vs.data.M0 - n*(now - vs.data.epoch);
+    const pos = keplerToCartesian(vs.data.a,vs.data.e,vs.data.i,vs.data.raan,vs.data.argPeri,M);
+    vs.mesh.position.copy(pos);
+    vs.label.position.copy(pos);
 
-  // --- Bigger indicator ---
-  const dist = camera.position.distanceTo(pos);
-  vs.mesh.scale.set(dist*0.002, dist*0.002, 1);  // was 0.0015
+    // Bigger indicator
+    const dist=camera.position.distanceTo(pos);
+    vs.mesh.scale.set(dist*0.002, dist*0.002, 1);
 
-  // --- Label scale stays readable ---
-  vs.label.scale.set(dist*0.001, dist*0.001, 1);
+    // Label scaled ~14px on screen
+    vs.label.scale.set(dist*0.001, dist*0.001, 1);
 
-  // --- Label always faces camera but stays upright ---
-  const camQuat = camera.quaternion.clone();
-  const euler = new THREE.Euler().setFromQuaternion(camQuat);
-  euler.x = 0; // remove pitch
-  euler.z = 0; // remove roll
-  vs.label.quaternion.setFromEuler(euler);
+    // Label always faces camera but stays horizontal
+    const camQuat = camera.quaternion.clone();
+    const euler = new THREE.Euler().setFromQuaternion(camQuat);
+    euler.x = 0; // no pitch
+    euler.z = 0; // no roll
+    vs.label.quaternion.setFromEuler(euler);
 
-  // Orbit fade
-  const orbit = orbitLines[vs.orbitIndex];
-  const idx = Math.floor(((M%(2*Math.PI))/(2*Math.PI))*orbit.points.length);
-  for(let j=0;j<orbit.points.length;j++){
-    const diff=(j-idx+orbit.points.length)%orbit.points.length;
-    orbit.alphas[j]=Math.max(0, 0.3*(1-diff/orbit.points.length));
-  }
-  orbit.line.geometry.attributes.alpha.needsUpdate=true;
-});
+    // Orbit fade
+    const orbit=orbitLines[vs.orbitIndex];
+    const idx=Math.floor(((M%(2*Math.PI))/(2*Math.PI))*orbit.points.length);
+    for(let j=0;j<orbit.points.length;j++){
+      const diff=(j-idx+orbit.points.length)%orbit.points.length;
+      orbit.alphas[j]=Math.max(0, 0.3*(1-diff/orbit.points.length));
+    }
+    orbit.line.geometry.attributes.alpha.needsUpdate=true;
+  });
 
   document.getElementById('utcTime').textContent=new Date().toISOString().replace('T',' ').replace('Z',' UTC');
   controls.update(); renderer.render(scene,camera);
