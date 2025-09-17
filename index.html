@@ -1,107 +1,98 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>PMC Space International LIVE</title>
+<meta charset="utf-8" />
+<title>KSP Tracker Test</title>
 <style>
-  body { margin: 0; overflow: hidden; background: black; }
-  #info { position: absolute; top: 10px; left: 10px; color: white; font-family: sans-serif; z-index: 1; }
-  #controls { position: absolute; top: 40px; left: 10px; z-index: 1; }
-  button { margin-right: 5px; padding: 5px 10px; }
+  html,body {margin:0; height:100%; overflow:hidden; background:#000; color:#fff; font-family:sans-serif;}
+  #timeLabel {position:absolute; top:10px; left:10px; background:rgba(0,0,0,0.6); padding:6px 10px; border-radius:6px;}
+  #planetControls {position:absolute; top:50px; left:10px; background:rgba(0,0,0,0.6); padding:6px 10px; border-radius:6px;}
+  #planetControls button {margin-right:5px; padding:5px 10px; cursor:pointer;}
 </style>
-<script type="module">
-  import * as THREE from 'https://cdn.jsdelivr.net/npm/three@0.158.0/build/three.module.js';
-  import { OrbitControls } from 'https://cdn.jsdelivr.net/npm/three@0.158.0/examples/jsm/controls/OrbitControls.js';
+</head>
+<body>
+<div id="timeLabel">UTC: <span id="utcTime">—</span></div>
+<div id="planetControls">
+  <button onclick="switchPlanet('Earth')">Earth</button>
+  <button onclick="switchPlanet('Moon')">Moon</button>
+  <button onclick="switchPlanet('Mars')">Mars</button>
+</div>
 
-  const scene = new THREE.Scene();
-  const camera = new THREE.PerspectiveCamera(60, window.innerWidth/window.innerHeight, 1e3, 1e9);
-  camera.position.set(0, 0, 2e7);
+<!-- Three.js r141 + OrbitControls (globally available) -->
+<script src="https://cdn.jsdelivr.net/npm/three@0.141.0/build/three.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.141.0/examples/js/controls/OrbitControls.js"></script>
 
-  const renderer = new THREE.WebGLRenderer({ antialias: true });
+<script>
+try {
+  // Scene, Camera, Renderer
+  let scene = new THREE.Scene();
+  let camera = new THREE.PerspectiveCamera(60, window.innerWidth/window.innerHeight, 0.1, 1e8);
+  camera.position.set(0,0,5e7);
+
+  let renderer = new THREE.WebGLRenderer({antialias:true});
   renderer.setSize(window.innerWidth, window.innerHeight);
   document.body.appendChild(renderer.domElement);
 
-  const controls = new OrbitControls(camera, renderer.domElement);
+  let controls = new THREE.OrbitControls(camera, renderer.domElement);
   controls.enableDamping = true;
   controls.dampingFactor = 0.05;
 
-  window.addEventListener('resize', () => {
-    camera.aspect = window.innerWidth/window.innerHeight;
-    camera.updateProjectionMatrix();
-    renderer.setSize(window.innerWidth, window.innerHeight);
-  });
+  // Light
+  let light = new THREE.DirectionalLight(0xffffff, 1);
+  light.position.set(5e7,5e7,5e7);
+  scene.add(light);
 
-  const loader = new THREE.TextureLoader();
-
-  // Planet setup
-  const planetData = {
-    Earth: { radius: 6371e3, texture: 'earth.jpg' },
-    Moon:  { radius: 1737e3, texture: 'moon.png' },
-    Mars:  { radius: 3389e3, texture: 'mars.jpg' }
+  // Planet textures
+  const planetTextures = {
+    Earth: 'earth.jpg',
+    Moon: 'moon.png',
+    Mars: 'mars.jpg'
+  };
+  const planetRadii = {
+    Earth: 6371e3,
+    Moon: 1737e3,
+    Mars: 3389e3
   };
 
-  let currentPlanetName = 'Earth';
+  let currentPlanet = 'Earth';
   let planetMesh;
+  const loader = new THREE.TextureLoader();
 
   function createPlanet(name) {
-    if (planetMesh) scene.remove(planetMesh);
-    const data = planetData[name];
-    const geometry = new THREE.SphereGeometry(data.radius, 64, 64);
-    const material = new THREE.MeshBasicMaterial({ map: loader.load(data.texture) });
+    if(planetMesh) scene.remove(planetMesh);
+    let geometry = new THREE.SphereGeometry(planetRadii[name], 64, 64);
+    let material = new THREE.MeshBasicMaterial({ map: loader.load(planetTextures[name]) });
     planetMesh = new THREE.Mesh(geometry, material);
     scene.add(planetMesh);
   }
 
-  createPlanet(currentPlanetName);
+  createPlanet(currentPlanet);
 
-  // Vessel
-  const vesselGeometry = new THREE.SphereGeometry(1e5, 16, 16);
-  const vesselMaterial = new THREE.MeshBasicMaterial({ color: 0xff0000 });
-  const vessel = new THREE.Mesh(vesselGeometry, vesselMaterial);
-  scene.add(vessel);
-
-  // Orbit constants
-  const muEarth = 3.986e14;
-  const orbitAltitude = 400e3;
-
-  function updateVesselPosition() {
-    const data = planetData[currentPlanetName];
-    const radius = data.radius + orbitAltitude;
-    const speed = Math.sqrt(muEarth / radius);
-    const now = Date.now() / 1000;
-    const angle = (now * speed / radius) % (2 * Math.PI);
-    vessel.position.set(radius * Math.cos(angle), 0, radius * Math.sin(angle));
+  window.switchPlanet = function(name) {
+    currentPlanet = name;
+    createPlanet(name);
   }
 
-  // Planet switch buttons
-  window.switchPlanet = function(name) {
-    currentPlanetName = name;
-    createPlanet(name);
-  };
-
-  function animate() {
+  // Animate
+  function animate(){
     requestAnimationFrame(animate);
+    if(planetMesh) planetMesh.rotation.y += 0.001;
+    document.getElementById('utcTime').textContent =
+      new Date().toISOString().replace('T',' ').replace('Z',' UTC');
     controls.update();
-
-    // Update vessel orbit
-    updateVesselPosition();
-
-    // Update UTC time
-    document.getElementById('utc-time').textContent = new Date().toISOString().replace('T',' ').split('.')[0];
-
     renderer.render(scene, camera);
   }
-
   animate();
+
+  window.addEventListener('resize', ()=>{
+    camera.aspect = window.innerWidth/window.innerHeight;
+    camera.updateProjectionMatrix();
+    renderer.setSize(window.innerWidth, window.innerHeight);
+  });
+} catch (err) {
+  console.error("Error in script:", err);
+  document.body.innerHTML = "<h1 style='color:red'>JS ERROR</h1><pre>"+err+"</pre>";
+}
 </script>
-</head>
-<body>
-  <div id="info">UTC Time: <span id="utc-time"></span></div>
-  <div id="controls">
-    <button onclick="switchPlanet('Earth')">Earth</button>
-    <button onclick="switchPlanet('Moon')">Moon</button>
-    <button onclick="switchPlanet('Mars')">Mars</button>
-  </div>
 </body>
 </html>
