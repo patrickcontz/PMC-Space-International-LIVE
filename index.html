@@ -163,44 +163,41 @@ function animate(){
   if(currentPlanet==='moon') planetMesh.rotation.y += (2*Math.PI)/(27.3*24*60*60)/60;
   if(currentPlanet==='mars') planetMesh.rotation.y += (2*Math.PI)/(24.6*60*60)/60;
 
-                                                                    vesselSprites.forEach((vs, i) => {
-                                                                        const mu = planetGM[vs.data.centralBody];
-                                                                        const n = Math.sqrt(mu / Math.pow(vs.data.a, 3));
-                                                                        const M = vs.data.M0 - n * (now - vs.data.epoch);
-                                                                        const pos = keplerToCartesian(vs.data.a, vs.data.e, vs.data.i, vs.data.raan, vs.data.argPeri, M);
-                                                                        vs.mesh.position.copy(pos);
-                                                                    
-                                                                        // Indicator stays as before
-                                                                        const dist = camera.position.distanceTo(pos);
-                                                                        vs.mesh.scale.set(dist * 0.002, dist * 0.002, 1);
-                                                                    
-                                                                        // Label: maintain aspect ratio and slightly above indicator
-                                                                        const labelOffset = dist * 0.0005; // offset above
-                                                                        const labelPos = pos.clone();
-                                                                        labelPos.y += labelOffset;
-                                                                        vs.label.position.copy(labelPos);
-                                                                    
-                                                                        // Keep label scale same, just fix X/Y ratio
-                                                                        const tex = vs.label.material.map;
-                                                                        const aspect = tex.image.width / tex.image.height;
-                                                                        const uniformScale = dist * 0.001; // same as before
-                                                                        vs.label.scale.set(uniformScale * aspect, uniformScale, 1);
-                                                                    
-                                                                        // Label faces camera horizontally
-                                                                        const camQuat = camera.quaternion.clone();
-                                                                        const euler = new THREE.Euler().setFromQuaternion(camQuat);
-                                                                        euler.x = 0; euler.z = 0;
-                                                                        vs.label.quaternion.setFromEuler(euler);
-                                                                    
-                                                                        // Orbit fade
-                                                                        const orbit = orbitLines[vs.orbitIndex];
-                                                                        const idx = Math.floor(((M % (2 * Math.PI)) / (2 * Math.PI)) * orbit.points.length);
-                                                                        for (let j = 0; j < orbit.points.length; j++) {
-                                                                            const diff = (j - idx + orbit.points.length) % orbit.points.length;
-                                                                            orbit.alphas[j] = Math.max(0, 0.3 * (1 - diff / orbit.points.length));
-                                                                        }
-                                                                        orbit.line.geometry.attributes.alpha.needsUpdate = true;
-                                                                    });
+  vesselSprites.forEach((vs,i)=>{
+    const mu = planetGM[vs.data.centralBody];
+    const n = Math.sqrt(mu/Math.pow(vs.data.a,3));
+    const M = vs.data.M0 - n*(now - vs.data.epoch);
+    const pos = keplerToCartesian(vs.data.a,vs.data.e,vs.data.i,vs.data.raan,vs.data.argPeri,M);
+    vs.mesh.position.copy(pos);
+    vs.label.position.copy(pos);
+
+    // --- Indicator scaling with clamp ---
+    const dist = camera.position.distanceTo(pos);
+    let indicatorScale = dist * 0.002;
+    indicatorScale = Math.max(50000, indicatorScale); // min size
+    vs.mesh.scale.set(indicatorScale, indicatorScale, 1);
+
+    // --- Label scaling with clamp ---
+    let labelScale = dist * 0.001;
+    labelScale = Math.max(80000, labelScale); // min size so it never disappears
+    vs.label.scale.set(labelScale, labelScale, 1);
+
+    // Label always faces camera but stays horizontal
+    const camQuat = camera.quaternion.clone();
+    const euler = new THREE.Euler().setFromQuaternion(camQuat);
+    euler.x = 0; // no pitch
+    euler.z = 0; // no roll
+    vs.label.quaternion.setFromEuler(euler);
+
+    // Orbit fade
+    const orbit=orbitLines[vs.orbitIndex];
+    const idx=Math.floor(((M%(2*Math.PI))/(2*Math.PI))*orbit.points.length);
+    for(let j=0;j<orbit.points.length;j++){
+      const diff=(j-idx+orbit.points.length)%orbit.points.length;
+      orbit.alphas[j]=Math.max(0, 0.3*(1-diff/orbit.points.length));
+    }
+    orbit.line.geometry.attributes.alpha.needsUpdate=true;
+  });
 
   document.getElementById('utcTime').textContent=new Date().toISOString().replace('T',' ').replace('Z',' UTC');
   controls.update(); renderer.render(scene,camera);
