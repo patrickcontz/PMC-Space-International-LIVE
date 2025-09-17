@@ -31,7 +31,6 @@ html, body {margin:0; height:100%; overflow:hidden; background:#000; font-family
 
 <script>
 // Constants
-const G = 6.67430e-11;
 const planetGM = {earth:3.986004418e14, moon:4.9048695e12, mars:4.282837e13};
 const planetTextures = {earth:'earth.jpg', moon:'moon.png', mars:'mars.jpg'};
 const vessels = [
@@ -47,12 +46,10 @@ const renderer = new THREE.WebGLRenderer({antialias:true});
 renderer.setSize(window.innerWidth, window.innerHeight);
 document.body.appendChild(renderer.domElement);
 const controls = new THREE.OrbitControls(camera, renderer.domElement);
-
 scene.add(new THREE.AmbientLight(0xffffff,0.6));
-const dirLight = new THREE.DirectionalLight(0xffffff,0.4);
-dirLight.position.set(5e6,5e6,5e6); scene.add(dirLight);
+const dirLight = new THREE.DirectionalLight(0xffffff,0.4); dirLight.position.set(5e6,5e6,5e6); scene.add(dirLight);
 
-// Circle texture for indicator
+// Circle texture for vessel indicator
 function createCircleTexture(color='white', size=64){
   const canvas=document.createElement('canvas'); canvas.width=canvas.height=size;
   const ctx=canvas.getContext('2d'); ctx.fillStyle=color;
@@ -61,20 +58,34 @@ function createCircleTexture(color='white', size=64){
 }
 const circleTex = createCircleTexture('white',64);
 
-// Create label canvas
+// Label canvas
 function createTextCanvas(text){
   const canvas=document.createElement('canvas'); const ctx=canvas.getContext('2d');
   ctx.font='Bold 64px Arial'; const w=ctx.measureText(text).width;
   canvas.width=w; canvas.height=64;
-  ctx.font='Bold 64px Arial'; ctx.fillStyle='white';
-  ctx.textBaseline='top'; ctx.fillText(text,0,0);
-  return canvas;
+  ctx.font='Bold 64px Arial'; ctx.fillStyle='white'; ctx.textBaseline='top';
+  ctx.fillText(text,0,0); return canvas;
 }
 
 // Global vars
-let currentPlanet='earth', planetMesh, vesselSprites=[], orbitLines=[];
+let currentPlanet='earth', planetMesh;
+let vesselSprites=[], orbitLines=[];
 
-// Planet creation
+// Kepler to Cartesian
+function keplerToCartesian(a,e,i,raan,argPeri,M){
+  const E=M;
+  let x=a*(Math.cos(E)-e);
+  let y=a*Math.sqrt(1-e*e)*Math.sin(E);
+  let z=0;
+  const cosAP=Math.cos(argPeri), sinAP=Math.sin(argPeri);
+  let x1=x*cosAP - y*sinAP, y1=x*sinAP + y*cosAP, z1=z;
+  const cosI=Math.cos(i), sinI=Math.sin(i);
+  let x2=x1, y2=y1*cosI - z1*sinI, z2=y1*sinI + z1;
+  const cosR=Math.cos(raan), sinR=Math.sin(raan);
+  return new THREE.Vector3(x2*cosR - y2*sinR, x2*sinR + y2*cosR, z2);
+}
+
+// Create planet and vessels
 function createPlanet(name){
   if(planetMesh) scene.remove(planetMesh);
   const radius=name==='moon'?1737e3:name==='earth'?6371e3:3390e3;
@@ -82,21 +93,20 @@ function createPlanet(name){
     new THREE.MeshStandardMaterial({map:new THREE.TextureLoader().load(planetTextures[name])}));
   scene.add(planetMesh);
 
-  vesselSprites.forEach(v=>scene.remove(v.mesh), scene.remove(v.label));
-  orbitLines.forEach(l=>scene.remove(l.line));
+  // Clear previous
+  vesselSprites.forEach(v=>{scene.remove(v.mesh); scene.remove(v.label);});
+  orbitLines.forEach(o=>scene.remove(o.line));
   vesselSprites=[]; orbitLines=[];
 
-  vessels.filter(v=>v.centralBody===name).forEach((v,i)=>{
-    // Sprite marker
+  vessels.filter(v=>v.centralBody===name).forEach((v,idx)=>{
+    // Vessel indicator
     const spriteMat=new THREE.SpriteMaterial({map:circleTex, depthTest:false});
-    const sprite=new THREE.Sprite(spriteMat);
-    sprite.renderOrder=999; scene.add(sprite);
+    const sprite=new THREE.Sprite(spriteMat); sprite.renderOrder=999; scene.add(sprite);
 
-    // Label as 3D sprite
+    // Label as sprite
     const labelTex=new THREE.CanvasTexture(createTextCanvas(v.info.name));
     const labelMat=new THREE.SpriteMaterial({map:labelTex, depthTest:false});
-    const labelSprite=new THREE.Sprite(labelMat);
-    labelSprite.renderOrder=1000; scene.add(labelSprite);
+    const labelSprite=new THREE.Sprite(labelMat); labelSprite.renderOrder=1000; scene.add(labelSprite);
 
     // Orbit line
     const steps=256; const points=[]; const alphas=new Float32Array(steps+1);
@@ -116,25 +126,11 @@ function createPlanet(name){
     const line=new THREE.Line(geom,matLine); scene.add(line);
 
     orbitLines.push({line, points, alphas});
-    vesselSprites.push({mesh:sprite,label:labelSprite,data:v,orbitIndex:i});
+    vesselSprites.push({mesh:sprite,label:labelSprite,data:v,orbitIndex:idx});
   });
 }
 createPlanet(currentPlanet);
 document.getElementById('planetDropdown').addEventListener('change',e=>{currentPlanet=e.target.value; createPlanet(currentPlanet);});
-
-// Kepler -> Cartesian
-function keplerToCartesian(a,e,i,raan,argPeri,M){
-  const E=M;
-  let x=a*(Math.cos(E)-e);
-  let y=a*Math.sqrt(1-e*e)*Math.sin(E);
-  let z=0;
-  const cosAP=Math.cos(argPeri), sinAP=Math.sin(argPeri);
-  let x1=x*cosAP - y*sinAP, y1=x*sinAP + y*cosAP, z1=z;
-  const cosI=Math.cos(i), sinI=Math.sin(i);
-  let x2=x1, y2=y1*cosI - z1*sinI, z2=y1*sinI + z1;
-  const cosR=Math.cos(raan), sinR=Math.sin(raan);
-  return new THREE.Vector3(x2*cosR - y2*sinR, x2*sinR + y2*cosR, z2);
-}
 
 // Animate
 function animate(){
@@ -145,34 +141,31 @@ function animate(){
   if(currentPlanet==='moon') planetMesh.rotation.y += (2*Math.PI)/(27.3*24*60*60)/60;
   if(currentPlanet==='mars') planetMesh.rotation.y += (2*Math.PI)/(24.6*60*60)/60;
 
-  vesselSprites.forEach((v,i)=>{
+  vesselSprites.forEach((v)=>{
     const mu=planetGM[v.data.centralBody];
     const n=Math.sqrt(mu/Math.pow(v.data.a,3));
     const M=v.data.M0 - n*(now-v.data.epoch);
     const pos=keplerToCartesian(v.data.a,v.data.e,v.data.i,v.data.raan,v.data.argPeri,M);
     v.mesh.position.copy(pos);
 
-    // Keep indicator visible size
+    // Indicator scaling
     const distance=camera.position.distanceTo(pos);
     const fov=camera.fov * (Math.PI/180);
-    const height=2 * Math.tan(fov/2) * distance;
-    const scale=(1.5e5 / window.innerHeight) * height;
-    v.mesh.scale.set(scale, scale, 1);
+    const height=2*Math.tan(fov/2)*distance;
+    v.mesh.scale.set((1.5e5/window.innerHeight)*height,(1.5e5/window.innerHeight)*height,1);
 
-    // Label fixed screen size
-    const labelDistance = 1; // scales with distance but stays readable
+    // Label fixed size, always facing camera
     v.label.position.copy(pos);
     v.label.scale.set(2e5,5e4,1);
-    v.label.quaternion.copy(camera.quaternion); // always face camera
+    v.label.quaternion.copy(camera.quaternion);
 
-    // Update orbit fade from current position
+    // Orbit fade from current position
     const orbit=orbitLines[v.orbitIndex];
-    const points=orbit.points;
-    const alphas=orbit.alphas;
-    const idx=Math.floor((M/(2*Math.PI)*points.length)%points.length);
+    const points=orbit.points; const alphas=orbit.alphas;
+    const idx=Math.floor(((M%(2*Math.PI))/(2*Math.PI))*points.length);
     for(let j=0;j<points.length;j++){
       const diff=(j-idx+points.length)%points.length;
-      alphas[j]=Math.max(0, 0.3*(1-diff/points.length));
+      alphas[j]=Math.max(0,0.3*(1-diff/points.length));
     }
     orbit.line.geometry.attributes.alpha.needsUpdate=true;
   });
