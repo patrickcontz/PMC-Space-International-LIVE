@@ -1,0 +1,525 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Planet Viewer + Modular Orbits</title>
+<style>
+  html,body { height:100%; margin:0; font-family:system-ui,Segoe UI,Roboto,Helvetica,Arial; background:#0b0b0b; color:#ddd; }
+  #ui { position: absolute; left:10px; top:10px; z-index:10; background:rgba(0,0,0,0.45); padding:10px; border-radius:8px; min-width:220px; }
+  #ui h3{ margin:0 0 8px 0; font-size:15px; color:#fff; }
+  #ui button, #ui input[type=file], #ui select { width:100%; margin:6px 0; padding:8px; }
+  #ui .row{ display:flex; gap:6px; }
+  #timeLabel{ font-size:12px; margin-top:6px; color:#ccc; }
+  canvas { display:block; }
+  #legend{ position:absolute; right:10px; top:10px; z-index:9; background:rgba(0,0,0,0.35); padding:8px; border-radius:8px; color:#ddd; font-size:12px; }
+</style>
+</head>
+<body>
+<div id="ui">
+  <h3>Planet Viewer</h3>
+  <label>Planet</label>
+  <select id="planetSelect">
+    <option value="earth" selected>Earth (default)</option>
+    <option value="moon">Moon</option>
+    <option value="mars">Mars</option>
+  </select>
+
+  <label>Time control</label>
+  <div class="row">
+    <button id="playBtn">Pause</button>
+    <button id="resetBtn">Reset</button>
+  </div>
+  <label>Speed ×</label>
+  <input id="speedRange" type="range" min="0" max="100000" value="3600" />
+  <div id="timeLabel">UTC: <span id="utcTime">—</span></div>
+
+  <label>Upload orbit JSON</label>
+  <input type="file" id="jsonUpload" accept=".json" />
+  <small style="color:#aaa">Provide array of orbit objects. See sample below.</small>
+
+  <hr style="border-color:#222;margin:8px 0;" />
+  <label>Rendering</label>
+  <div class="row">
+    <button id="toggleOrbits">Hide Orbits</button>
+    <button id="downloadSample">Download Sample JSON</button>
+  </div>
+  <div style="margin-top:6px; font-size:12px; color:#bbb;">
+    Distance scale: <span id="scaleNote">linear (scaled)</span><br>
+    Adjust scale inside source to enable log-scale or change scale factor.
+  </div>
+</div>
+
+<div id="legend">
+  Controls: mouse drag rotate, mouse wheel zoom. Click planet names to switch.
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/three@0.156.1/build/three.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.156.1/examples/js/controls/OrbitControls.js"></script>
+
+<script>
+/* ---------------------------
+   Basic scene & planet presets
+   --------------------------- */
+
+const PLANETS = {
+  earth: {
+    name: "Earth",
+    radius_m: 6371000,
+    texture: "https://raw.githubusercontent.com/mrdoob/three.js/dev/examples/textures/land_ocean_ice_cloud_2048.jpg",
+    color: 0x2a6fb6,
+    mu: 3.986004418e14  // gravitational parameter (m^3/s^2) for Earth
+  },
+  moon: {
+    name: "Moon",
+    radius_m: 1737100,
+    texture: "https://raw.githubusercontent.com/augusthas/planets-textures/master/moon.jpg",
+    color: 0x9b9b9b,
+    mu: 4.9048695e12   // Moon mu
+  },
+  mars: {
+    name: "Mars",
+    radius_m: 3389500,
+    texture: "https://raw.githubusercontent.com/augusthas/planets-textures/master/mars.jpg",
+    color: 0xb65a36,
+    mu: 4.282837e13    // Mars mu
+  }
+};
+
+let scene, camera, renderer, controls;
+let planetMesh = null, planetGroup;
+let orbitLinesGroup;
+let sim = {
+  playing: true,
+  speed: 3600,        // seconds per real second (default 1 simulated hour / s)
+  t0: Date.now() / 1000, // reference epoch (seconds since epoch)
+  simEpoch: Date.now() / 1000
+};
+const DISTANCE_SCALE = 1e-6;  // multiplies meters -> scene units (tweak as needed)
+const MIN_RENDER_SCALE = 1e-7; // prevent z-fighting for tiny objects
+
+init();
+animate();
+
+/* ---------------------------
+   Initialization
+   --------------------------- */
+
+function init(){
+  scene = new THREE.Scene();
+  const canvasRatio = window.innerWidth / window.innerHeight;
+
+  camera = new THREE.PerspectiveCamera(45, canvasRatio, 0.01, 1e8);
+  camera.position.set(0, 2, 6);
+
+  renderer = new THREE.WebGLRenderer({ antialias:true });
+  renderer.setPixelRatio(window.devicePixelRatio);
+  renderer.setSize(window.innerWidth, window.innerHeight);
+  document.body.appendChild(renderer.domElement);
+
+  controls = new THREE.OrbitControls(camera, renderer.domElement);
+  controls.enableDamping = true;
+
+  // Lighting
+  const dir = new THREE.DirectionalLight(0xffffff, 1.0);
+  dir.position.set(5, 2, 2);
+  scene.add(dir);
+  scene.add(new THREE.AmbientLight(0x606060));
+
+  // starfield background
+  createStarfield();
+
+  // planet holder
+  planetGroup = new THREE.Group();
+  scene.add(planetGroup);
+
+  orbitLinesGroup = new THREE.Group();
+  scene.add(orbitLinesGroup);
+
+  // create default planet
+  createPlanet('earth');
+
+  // UI bindings
+  bindUI();
+
+  window.addEventListener('resize', onResize);
+}
+
+/* ---------------------------
+   Planet creation
+   --------------------------- */
+function createPlanet(key){
+  const p = PLANETS[key];
+  // clear existing
+  if (planetMesh) { planetGroup.remove(planetMesh); planetMesh.geometry.dispose(); }
+  const radiusScene = Math.max(p.radius_m * DISTANCE_SCALE, p.radius_m * MIN_RENDER_SCALE);
+
+  const geometry = new THREE.SphereGeometry(radiusScene, 64, 64);
+  const loader = new THREE.TextureLoader();
+  const material = new THREE.MeshStandardMaterial({
+    map: loader.load(p.texture),
+    roughness:1,
+    metalness:0
+  });
+  planetMesh = new THREE.Mesh(geometry, material);
+  planetMesh.userData = { radius_m: p.radius_m, key };
+  planetGroup.add(planetMesh);
+
+  // put camera back to show the planet
+  controls.target.set(0,0,0);
+  camera.position.set(radiusScene * 0.0 + radiusScene * 4.0, radiusScene * 1.2, radiusScene * 4.0);
+  controls.update();
+}
+
+/* ---------------------------
+   Starfield (procedural)
+   --------------------------- */
+function createStarfield(){
+  const stars = new THREE.BufferGeometry();
+  const starCount = 6000;
+  const positions = new Float32Array(starCount * 3);
+  for(let i=0;i<starCount;i++){
+    const r = Math.random() * 1000 + 500;
+    const theta = Math.random() * Math.PI * 2;
+    const phi = Math.acos(2*Math.random()-1);
+    positions[3*i] = r * Math.sin(phi) * Math.cos(theta);
+    positions[3*i+1] = r * Math.sin(phi) * Math.sin(theta);
+    positions[3*i+2] = r * Math.cos(phi);
+  }
+  stars.setAttribute('position', new THREE.BufferAttribute(positions,3));
+  const starMat = new THREE.PointsMaterial({ size: 0.8, sizeAttenuation: true, color:0xffffff, opacity:0.9 });
+  const points = new THREE.Points(stars, starMat);
+  points.frustumCulled = false;
+  scene.add(points);
+}
+
+/* ---------------------------
+   Orbit module
+   --------------------------- */
+
+/*
+  OrbitModule supports two data formats per orbit object:
+  1) Keplerian elements:
+     {
+       "id": "sat1",
+       "type": "keplerian",
+       "centralBody": "earth",
+       "epoch": 1694764800,     // unix epoch in seconds
+       "a": 7000000,            // semi-major axis in meters
+       "e": 0.001,
+       "i": 51.6,               // inclination degrees
+       "raan": 0,               // RAAN degrees
+       "argPeri": 0,            // arg of perigee degrees
+       "M0": 0                  // mean anomaly at epoch degrees
+     }
+
+  2) Cartesian state vector:
+     {
+       "id":"obj",
+       "type":"cartesian",
+       "epoch":1694764800,
+       "r": [x,y,z],    // meters in body-centered inertial frame
+       "v": [vx,vy,vz]  // m/s
+     }
+
+  OrbitModule will create a THREE.LinePath for the orbit and an object marker that moves in realtime.
+*/
+
+const OrbitModule = (function(){
+  const orbits = []; // { meta, line, marker }
+
+  function clear(){
+    orbits.forEach(o=>{
+      if (o.line) { orbitLinesGroup.remove(o.line); o.line.geometry.dispose(); }
+      if (o.marker) orbitLinesGroup.remove(o.marker);
+    });
+    orbits.length = 0;
+  }
+
+  // Kepler solver utilities
+  function deg2rad(d){ return d * Math.PI/180; }
+  function rad2deg(r){ return r * 180/Math.PI; }
+
+  // Solve Kepler's equation (M -> E) via Newton
+  function solveKepler(M, e, tol=1e-8){
+    // M in rad
+    M = ((M % (2*Math.PI)) + 2*Math.PI) % (2*Math.PI);
+    let E = e < 0.8 ? M : Math.PI;
+    let iter = 0;
+    while(iter < 50){
+      const f = E - e*Math.sin(E) - M;
+      const fp = 1 - e*Math.cos(E);
+      const dE = f / fp;
+      E = E - dE;
+      if (Math.abs(dE) < tol) break;
+      iter++;
+    }
+    return E;
+  }
+
+  function orbitalToState(a,e,i_deg,raan_deg,argp_deg,M_deg, mu){
+    // returns r (m), v (m/s) in inertial frame
+    const i = deg2rad(i_deg), raan = deg2rad(raan_deg), argp = deg2rad(argp_deg), M = deg2rad(M_deg);
+    const E = solveKepler(M, e);
+    const cosE = Math.cos(E);
+    const sinE = Math.sin(E);
+    const sqrtOneMinusESq = Math.sqrt(1 - e*e);
+    const nu = Math.atan2(sqrtOneMinusESq * sinE, cosE - e); // true anomaly
+    const r_perifocal = (a * (1 - e*cosE));
+    const r_pf = [ (a*(cosE - e)), (a*sqrtOneMinusESq*sinE), 0 ];
+    const p = a * (1 - e*e);
+    const v_pf = [ -Math.sqrt(mu/p) * Math.sin(nu), Math.sqrt(mu/p) * (e + Math.cos(nu)), 0 ];
+
+    // rotation matrices: Rz(raan) * Rx(i) * Rz(argp)
+    const ca = Math.cos(raan), sa = Math.sin(raan);
+    const ci = Math.cos(i), si = Math.sin(i);
+    const cp = Math.cos(argp), sp = Math.sin(argp);
+
+    const R = [
+      ca*cp - sa*sp*ci, -ca*sp - sa*cp*ci, sa*si,
+      sa*cp + ca*sp*ci, -sa*sp + ca*cp*ci, -ca*si,
+      sp*si, cp*si, ci
+    ];
+
+    const r = [
+      R[0]*r_pf[0] + R[1]*r_pf[1] + R[2]*r_pf[2],
+      R[3]*r_pf[0] + R[4]*r_pf[1] + R[5]*r_pf[2],
+      R[6]*r_pf[0] + R[7]*r_pf[1] + R[8]*r_pf[2]
+    ];
+    const v = [
+      R[0]*v_pf[0] + R[1]*v_pf[1] + R[2]*v_pf[2],
+      R[3]*v_pf[0] + R[4]*v_pf[1] + R[5]*v_pf[2],
+      R[6]*v_pf[0] + R[7]*v_pf[1] + R[8]*v_pf[2]
+    ];
+    return { r, v };
+  }
+
+  function addOrbit(orbitObj){
+    const meta = orbitObj;
+    // create a marker
+    const markerGeom = new THREE.SphereGeometry( Math.max( (planetMesh ? planetMesh.userData.radius_m*DISTANCE_SCALE : 1000)*0.02, 0.5), 8, 8 );
+    const markerMat = new THREE.MeshStandardMaterial({ color: 0xffaa00, emissive:0x220000 });
+    const marker = new THREE.Mesh(markerGeom, markerMat);
+    orbitLinesGroup.add(marker);
+
+    // precompute orbit path points (sample)
+    const points = [];
+    const samples = 256;
+    const central = PLANETS[meta.centralBody || 'earth'];
+    const mu = (central && central.mu) ? central.mu : (meta.mu || PLANETS.earth.mu);
+
+    if (meta.type === 'keplerian'){
+      const a = meta.a, e = meta.e, i = meta.i, raan = meta.raan, argPeri = meta.argPeri, M0 = meta.M0, epoch = meta.epoch;
+      // sample mean anomaly across one orbit (or 0..2pi)
+      const meanMotion = Math.sqrt(mu / Math.pow(a,3)); // rad/s
+      for(let s=0;s<samples;s++){
+        const M = (s/samples) * 2*Math.PI;
+        const state = orbitalToState(a,e,i,raan,argPeri, rad2deg(M), mu);
+        points.push( new THREE.Vector3(...state.r.map(x=>x*DISTANCE_SCALE)) );
+      }
+    } else if (meta.type === 'cartesian'){
+      // sample across small ellipses by propagating using simple two-body (not implemented: we'll just draw current radius circle)
+      const r = meta.r;
+      for(let s=0;s<samples;s++){
+        const theta = (s/samples) * Math.PI*2;
+        const x = r[0] + Math.cos(theta)*1e6;
+        const y = r[1] + Math.sin(theta)*1e6;
+        const z = r[2];
+        points.push(new THREE.Vector3(x*DISTANCE_SCALE, y*DISTANCE_SCALE, z*DISTANCE_SCALE));
+      }
+    } else {
+      console.warn("Unknown orbit type", meta.type);
+    }
+
+    const geom = new THREE.BufferGeometry().setFromPoints(points);
+    const mat = new THREE.LineBasicMaterial({ color: 0x88ccff, linewidth:1 });
+    const line = new THREE.LineLoop(geom, mat); // loop to close
+    orbitLinesGroup.add(line);
+
+    const entry = { meta, line, marker, mu };
+    orbits.push(entry);
+    return entry;
+  }
+
+  function updateMarkers(simEpoch){
+    // move each marker to its computed location at simEpoch
+    orbits.forEach(o=>{
+      try {
+        const m = o.meta;
+        if (m.type === 'keplerian'){
+          // compute mean anomaly at simEpoch
+          const a = m.a, e = m.e, i = m.i, raan = m.raan, argPeri = m.argPeri, M0 = m.M0, epoch = m.epoch;
+          const mu = o.mu || PLANETS.earth.mu;
+          const n = Math.sqrt(mu / Math.pow(a,3)); // rad/s
+          const dt = (simEpoch - epoch);
+          const M = deg2rad(M0) + n * dt; // current M
+          const state = orbitalToState(a, e, i, raan, argPeri, rad2deg(M), mu);
+          const pos = new THREE.Vector3(...state.r.map(x=>x*DISTANCE_SCALE));
+          o.marker.position.copy(pos);
+        } else if (m.type === 'cartesian'){
+          // assume r is at epoch; naive propagation using velocity (not precise)
+          const dt = simEpoch - m.epoch;
+          const r = m.r, v = m.v;
+          const pos = new THREE.Vector3(
+            (r[0] + v[0]*dt) * DISTANCE_SCALE,
+            (r[1] + v[1]*dt) * DISTANCE_SCALE,
+            (r[2] + v[2]*dt) * DISTANCE_SCALE
+          );
+          o.marker.position.copy(pos);
+        }
+      } catch(err){ console.error("Orbit update error", err); }
+    });
+  }
+
+  function list(){
+    return orbits.map(o=>o.meta);
+  }
+
+  return { clear, addOrbit, updateMarkers, list };
+})();
+
+/* ---------------------------
+   UI bindings & helpers
+   --------------------------- */
+
+function bindUI(){
+  document.getElementById('planetSelect').addEventListener('change', (e)=>{
+    createPlanet(e.target.value);
+  });
+
+  const playBtn = document.getElementById('playBtn');
+  playBtn.addEventListener('click', ()=>{
+    sim.playing = !sim.playing;
+    playBtn.textContent = sim.playing ? "Pause" : "Play";
+  });
+
+  document.getElementById('resetBtn').addEventListener('click', ()=>{
+    sim.simEpoch = sim.t0;
+  });
+
+  document.getElementById('speedRange').addEventListener('input', (e)=>{
+    const val = Number(e.target.value);
+    sim.speed = val;
+    document.getElementById('timeLabel').querySelector('span') // keep existing
+  });
+
+  document.getElementById('jsonUpload').addEventListener('change', (ev)=>{
+    const f = ev.target.files[0];
+    if (!f) return;
+    const reader = new FileReader();
+    reader.onload = function(evt){
+      try {
+        const json = JSON.parse(evt.target.result);
+        handleOrbitJSON(json);
+      } catch(err){ alert("Invalid JSON: "+err); }
+    };
+    reader.readAsText(f);
+  });
+
+  document.getElementById('toggleOrbits').addEventListener('click', (e)=>{
+    orbitLinesGroup.visible = !orbitLinesGroup.visible;
+    e.target.textContent = orbitLinesGroup.visible ? "Hide Orbits" : "Show Orbits";
+  });
+
+  document.getElementById('downloadSample').addEventListener('click', ()=>{
+    const sample = sampleJSON();
+    const blob = new Blob([JSON.stringify(sample, null, 2)], {type:'application/json'});
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'sample_orbits.json';
+    a.click();
+    URL.revokeObjectURL(url);
+  });
+}
+
+function handleOrbitJSON(json){
+  // accept array or single object
+  let arr = Array.isArray(json) ? json : [json];
+  OrbitModule.clear();
+  arr.forEach(o => {
+    // validate minimal fields
+    if (!o.type) {
+      console.warn("Missing type for orbit object", o);
+      return;
+    }
+    if (o.type === 'keplerian' && (!o.a || o.epoch === undefined)) {
+      console.warn("Keplerian orbit missing a or epoch", o);
+      return;
+    }
+    OrbitModule.addOrbit(o);
+  });
+}
+
+/* Sample JSON generator for download */
+function sampleJSON(){
+  const now = Math.floor(Date.now()/1000);
+  return [
+    {
+      "id":"ISS-like",
+      "type":"keplerian",
+      "centralBody":"earth",
+      "epoch": now,
+      "a": 6771000,  // ~ 400 km altitude
+      "e": 0.0005,
+      "i": 51.64,
+      "raan": 0,
+      "argPeri": 0,
+      "M0": 0
+    },
+    {
+      "id":"Moon-sample",
+      "type":"keplerian",
+      "centralBody":"earth",
+      "epoch": now,
+      "a": 384400000,
+      "e": 0.0549,
+      "i": 5.145,
+      "raan": 0,
+      "argPeri": 0,
+      "M0": 0
+    }
+  ];
+}
+
+/* ---------------------------
+   Animation loop
+   --------------------------- */
+
+function animate(){
+  requestAnimationFrame(animate);
+
+  // advance sim time if playing
+  const now = Date.now()/1000;
+  const dtReal = now - (sim._lastRealTime || now);
+  sim._lastRealTime = now;
+  if (sim.playing) sim.simEpoch += dtReal * sim.speed;
+
+  // update UI time label
+  const utc = new Date(sim.simEpoch*1000).toISOString().replace('T',' ').replace('Z',' UTC');
+  document.getElementById('utcTime').textContent = utc;
+
+  // update orbits
+  OrbitModule.updateMarkers(sim.simEpoch);
+
+  controls.update();
+  renderer.render(scene, camera);
+}
+
+/* ---------------------------
+   Window events
+   --------------------------- */
+
+function onResize(){
+  camera.aspect = window.innerWidth / window.innerHeight;
+  camera.updateProjectionMatrix();
+  renderer.setSize(window.innerWidth, window.innerHeight);
+}
+
+/* ---------------------------
+   Utility
+   --------------------------- */
+function rad2deg(r){ return r * 180/Math.PI; }
+</script>
+</body>
+</html>
