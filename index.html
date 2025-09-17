@@ -173,18 +173,21 @@ function animate(){
     const scale = (11 / window.innerHeight) * height;
     v.mesh.scale.set(scale, scale, 1);
     
-    // Label at same position as sprite
-    const vector = pos.clone().project(camera);
-    let x = (vector.x*0.5 + 0.5) * window.innerWidth;
-    let y = (-vector.y*0.5 + 0.5) * window.innerHeight;
+    // Label follows sprite exactly
+    const spritePos = v.mesh.position.clone();
+    const vector = spritePos.project(camera);
     
-    // Optional: clamp to screen edges
-    x = Math.min(window.innerWidth - 50, Math.max(50, x));
-    y = Math.min(window.innerHeight - 20, Math.max(20, y));
+    let x = (vector.x * 0.5 + 0.5) * window.innerWidth;
+    let y = (-vector.y * 0.5 + 0.5) * window.innerHeight;
+    
+    // Clamp to screen edges so it never goes off screen
+    x = Math.min(window.innerWidth - 10, Math.max(10, x));
+    y = Math.min(window.innerHeight - 10, Math.max(10, y));
     
     labels[i].style.transform = `translate(-50%,-50%) translate(${x}px,${y}px)`;
     labels[i].style.display = 'block';
     labels[i].style.fontSize = '14px';
+
   });
 
   document.getElementById('utcTime').textContent=new Date().toISOString().replace('T',' ').replace('Z',' UTC');
