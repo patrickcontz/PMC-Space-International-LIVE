@@ -1,0 +1,36 @@
+[
+  {
+    "id":"iss_recreation",
+    "type":"keplerian",
+    "centralBody":"earth",
+    "epoch": 1737176400,
+    "a": 6771000,
+    "e": 0.0005,
+    "i": 51.64,
+    "raan": 0,
+    "argPeri": 0,
+    "M0": 0,
+    "info": {
+      "name": "ISS Recreation",
+      "description": "International Space Station recreated in KSP RSS/RO.",
+      "youtube": "https://www.youtube.com/watch?v=VIDEO1"
+    }
+  },
+  {
+    "id":"apollo8_recreation",
+    "type":"keplerian",
+    "centralBody":"moon",
+    "epoch": 1737176400,
+    "a": 1838000,
+    "e": 0.05,
+    "i": 1.5,
+    "raan": 0,
+    "argPeri": 0,
+    "M0": 0,
+    "info": {
+      "name": "Apollo 8 Recreation",
+      "description": "First crewed mission to orbit the Moon, recreated in KSP RSS/RO.",
+      "youtube": "https://www.youtube.com/watch?v=VIDEO2"
+    }
+  }
+]
