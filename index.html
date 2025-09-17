@@ -11,8 +11,10 @@
 <body>
 <div id="timeLabel">UTC: <span id="utcTime">—</span></div>
 
-<script src="https://cdn.jsdelivr.net/npm/three@0.156.1/build/three.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/three@0.156.1/examples/js/controls/OrbitControls.js"></script>
+<!-- Use Three.js r141 (with OrbitControls globally available) -->
+<script src="https://cdn.jsdelivr.net/npm/three@0.141.0/build/three.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.141.0/examples/js/controls/OrbitControls.js"></script>
+
 <script>
 try {
   let scene = new THREE.Scene();
@@ -25,13 +27,12 @@ try {
 
   let controls = new THREE.OrbitControls(camera, renderer.domElement);
 
-  // Simple gray sphere instead of texture
+  // Simple gray sphere
   let geometry = new THREE.SphereGeometry(2, 32, 32);
-  let material = new THREE.MeshBasicMaterial({color:0x8888ff, wireframe:false});
+  let material = new THREE.MeshBasicMaterial({color:0x8888ff});
   let earth = new THREE.Mesh(geometry, material);
   scene.add(earth);
 
-  // Light
   let light = new THREE.DirectionalLight(0xffffff, 1);
   light.position.set(5,5,5);
   scene.add(light);
