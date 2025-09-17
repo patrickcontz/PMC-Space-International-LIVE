@@ -2,12 +2,12 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<title>KSP Tracker Final Fixed Sizes</title>
+<title>KSP Tracker Final Screen Sizes</title>
 <style>
 html, body {margin:0; height:100%; overflow:hidden; background:#000; font-family:sans-serif; color:#fff;}
 #timeLabel {position:absolute; top:10px; left:10px; background:rgba(0,0,0,0.6); padding:6px 10px; border-radius:6px;}
 #planetSelector {position:absolute; top:50px; left:10px; background:rgba(0,0,0,0.6); padding:6px 10px; border-radius:6px;}
-.label {color:white; font-size:14px; font-weight:bold; position:absolute; pointer-events:none; white-space:nowrap; text-shadow:0 0 6px #000; transform-origin:center center;}
+.label {color:white; font-size:14px; font-weight:bold; position:absolute; pointer-events:none; white-space:nowrap; text-shadow:0 0 6px #000;}
 #infoPanel {position:absolute; left:0; top:100px; width:250px; background:rgba(0,0,0,0.8); padding:10px; border-radius:6px; display:none;}
 #infoPanel a {color:cyan; text-decoration:none;}
 </style>
@@ -76,22 +76,14 @@ function createPlanet(name){
   vesselSprites=[]; orbitLines=[]; labels=[];
 
   vessels.filter(v=>v.centralBody===name).forEach(v=>{
-    // Sprite marker fixed size 11px
-    const canvas = document.createElement('canvas');
-    canvas.width = 64; canvas.height = 64;
-    const ctx = canvas.getContext('2d');
-    ctx.fillStyle = '#ffffff';
-    ctx.beginPath();
-    ctx.arc(32,32,11,0,Math.PI*2);
-    ctx.fill();
-    const texture = new THREE.CanvasTexture(canvas);
-    const mat = new THREE.SpriteMaterial({map: texture, depthTest:false});
+    // Sprite marker (11px on screen)
+    const mat = new THREE.SpriteMaterial({color:0xffffff, depthTest:false});
     const sprite = new THREE.Sprite(mat);
     sprite.renderOrder = 999;
     scene.add(sprite);
     vesselSprites.push({mesh:sprite,data:v});
 
-    // Label fixed size 14px
+    // Label (14px)
     const div = document.createElement('div');
     div.className='label'; 
     div.innerText=v.info.name;
@@ -162,7 +154,14 @@ function animate(){
     const pos = keplerToCartesian(v.data.a,v.data.e,v.data.i,v.data.raan,v.data.argPeri,v.data.M0);
     v.mesh.position.copy(pos);
 
-    // Label always to the left in 3D
+    // fixed screen-size 11px
+    const distance = camera.position.distanceTo(pos);
+    const fov = camera.fov * (Math.PI/180);
+    const height = 2 * Math.tan(fov/2) * distance;
+    const scale = (11 / window.innerHeight) * height;
+    v.mesh.scale.set(scale, scale, 1);
+
+    // Label 14px fixed size
     const labelOffset = new THREE.Vector3(-2.5e5, 0, 0);
     const labelPos = pos.clone().add(labelOffset);
     const vector = labelPos.clone().project(camera);
@@ -170,6 +169,7 @@ function animate(){
     const y=(-vector.y*0.5 + 0.5)*window.innerHeight;
     labels[i].style.transform=`translate(-50%,-50%) translate(${x}px,${y}px) scale(1)`; 
     labels[i].style.display='block';
+    labels[i].style.fontSize='14px';
   });
 
   document.getElementById('utcTime').textContent=new Date().toISOString().replace('T',' ').replace('Z',' UTC');
