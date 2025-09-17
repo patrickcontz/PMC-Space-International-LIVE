@@ -2,12 +2,12 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<title>KSP Tracker Final Improved Labels</title>
+<title>KSP Tracker Final Labels Fixed</title>
 <style>
 html, body {margin:0; height:100%; overflow:hidden; background:#000; font-family:sans-serif; color:#fff;}
 #timeLabel {position:absolute; top:10px; left:10px; background:rgba(0,0,0,0.6); padding:6px 10px; border-radius:6px;}
 #planetSelector {position:absolute; top:50px; left:10px; background:rgba(0,0,0,0.6); padding:6px 10px; border-radius:6px;}
-.label {color:white; font-size:16px; font-weight:bold; position:absolute; pointer-events:none; white-space:nowrap; text-shadow:0 0 6px #000; transform-origin:center bottom;}
+.label {color:white; font-size:18px; font-weight:bold; position:absolute; pointer-events:none; white-space:nowrap; text-shadow:0 0 6px #000; transform-origin:center center;}
 #infoPanel {position:absolute; left:0; top:100px; width:250px; background:rgba(0,0,0,0.8); padding:10px; border-radius:6px; display:none;}
 #infoPanel a {color:cyan; text-decoration:none;}
 </style>
@@ -82,7 +82,7 @@ function createPlanet(name){
     const ctx = canvas.getContext('2d');
     ctx.fillStyle = '#ffffff';
     ctx.beginPath();
-    ctx.arc(32,32,12,0,Math.PI*2); // smaller circle
+    ctx.arc(32,32,10,0,Math.PI*2); // smaller circle
     ctx.fill();
     const texture = new THREE.CanvasTexture(canvas);
     const mat = new THREE.SpriteMaterial({map: texture, depthTest:false});
@@ -91,7 +91,7 @@ function createPlanet(name){
     scene.add(sprite);
     vesselSprites.push({mesh:sprite,data:v});
 
-    // Label
+    // Label as Sprite (always in 3D, like marker)
     const div = document.createElement('div');
     div.className='label'; 
     div.innerText=v.info.name;
@@ -161,13 +161,15 @@ function animate(){
   vesselSprites.forEach((v,i)=>{
     const pos = keplerToCartesian(v.data.a,v.data.e,v.data.i,v.data.raan,v.data.argPeri,v.data.M0);
     v.mesh.position.copy(pos);
-    v.mesh.scale.set(1.5e5,1.5e5,1); // smaller sphere
+    v.mesh.scale.set(1e5,1e5,1); // smaller sphere
 
-    // Label above circle
-    const vector = pos.clone().project(camera);
+    // Label always to the left in 3D
+    const labelOffset = new THREE.Vector3(-2.5e5, 1e5, 0); 
+    const labelPos = pos.clone().add(labelOffset);
+    const vector = labelPos.clone().project(camera);
     const x=(vector.x*0.5 + 0.5)*window.innerWidth;
     const y=(-vector.y*0.5 + 0.5)*window.innerHeight;
-    labels[i].style.transform=`translate(-50%,-150%) translate(${x}px,${y}px) scale(1)`; // always readable
+    labels[i].style.transform=`translate(-50%,-50%) translate(${x}px,${y}px) scale(1)`; 
     labels[i].style.display='block';
   });
 
