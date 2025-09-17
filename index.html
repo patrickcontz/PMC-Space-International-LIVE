@@ -2,12 +2,12 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<title>KSP Tracker Final Labels Fixed</title>
+<title>KSP Tracker Final Fixed Sizes</title>
 <style>
 html, body {margin:0; height:100%; overflow:hidden; background:#000; font-family:sans-serif; color:#fff;}
 #timeLabel {position:absolute; top:10px; left:10px; background:rgba(0,0,0,0.6); padding:6px 10px; border-radius:6px;}
 #planetSelector {position:absolute; top:50px; left:10px; background:rgba(0,0,0,0.6); padding:6px 10px; border-radius:6px;}
-.label {color:white; font-size:18px; font-weight:bold; position:absolute; pointer-events:none; white-space:nowrap; text-shadow:0 0 6px #000; transform-origin:center center;}
+.label {color:white; font-size:14px; font-weight:bold; position:absolute; pointer-events:none; white-space:nowrap; text-shadow:0 0 6px #000; transform-origin:center center;}
 #infoPanel {position:absolute; left:0; top:100px; width:250px; background:rgba(0,0,0,0.8); padding:10px; border-radius:6px; display:none;}
 #infoPanel a {color:cyan; text-decoration:none;}
 </style>
@@ -76,13 +76,13 @@ function createPlanet(name){
   vesselSprites=[]; orbitLines=[]; labels=[];
 
   vessels.filter(v=>v.centralBody===name).forEach(v=>{
-    // Sprite marker as small circle
+    // Sprite marker fixed size 11px
     const canvas = document.createElement('canvas');
     canvas.width = 64; canvas.height = 64;
     const ctx = canvas.getContext('2d');
     ctx.fillStyle = '#ffffff';
     ctx.beginPath();
-    ctx.arc(32,32,10,0,Math.PI*2); // smaller circle
+    ctx.arc(32,32,11,0,Math.PI*2);
     ctx.fill();
     const texture = new THREE.CanvasTexture(canvas);
     const mat = new THREE.SpriteMaterial({map: texture, depthTest:false});
@@ -91,7 +91,7 @@ function createPlanet(name){
     scene.add(sprite);
     vesselSprites.push({mesh:sprite,data:v});
 
-    // Label as Sprite (always in 3D, like marker)
+    // Label fixed size 14px
     const div = document.createElement('div');
     div.className='label'; 
     div.innerText=v.info.name;
@@ -161,10 +161,9 @@ function animate(){
   vesselSprites.forEach((v,i)=>{
     const pos = keplerToCartesian(v.data.a,v.data.e,v.data.i,v.data.raan,v.data.argPeri,v.data.M0);
     v.mesh.position.copy(pos);
-    v.mesh.scale.set(1e5,1e5,1); // smaller sphere
 
     // Label always to the left in 3D
-    const labelOffset = new THREE.Vector3(-2.5e5, 1e5, 0); 
+    const labelOffset = new THREE.Vector3(-2.5e5, 0, 0);
     const labelPos = pos.clone().add(labelOffset);
     const vector = labelPos.clone().project(camera);
     const x=(vector.x*0.5 + 0.5)*window.innerWidth;
