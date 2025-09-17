@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<title>KSP Tracker Final Moving Vessels - 3D Labels & Orbit Fade</title>
+<title>KSP Tracker Final - 3D Labels & Visible Indicators</title>
 <style>
 html, body {margin:0; height:100%; overflow:hidden; background:#000; font-family:sans-serif; color:#fff;}
 #timeLabel {position:absolute; top:10px; left:10px; background:rgba(0,0,0,0.6); padding:6px 10px; border-radius:6px;}
@@ -32,7 +32,6 @@ html, body {margin:0; height:100%; overflow:hidden; background:#000; font-family
 <script src="https://cdn.jsdelivr.net/npm/three@0.141.0/examples/js/geometries/TextGeometry.js"></script>
 
 <script>
-// Constants
 const planetGM = { earth: 3.986004418e14, moon: 4.9048695e12, mars: 4.282837e13 };
 const planetTextures = { earth:'earth.jpg', moon:'moon.png', mars:'mars.jpg' };
 const vessels = [
@@ -55,7 +54,7 @@ const dirLight = new THREE.DirectionalLight(0xffffff,0.4);
 dirLight.position.set(5e6,5e6,5e6);
 scene.add(dirLight);
 
-// Circle sprite texture
+// Sprite texture
 function createCircleTexture(color='white', size=64){
   const canvas = document.createElement('canvas'); canvas.width=canvas.height=size;
   const ctx = canvas.getContext('2d');
@@ -87,22 +86,22 @@ function createPlanet(name){
   vesselSprites=[]; labelMeshes=[]; orbitLines=[];
 
   vessels.filter(v=>v.centralBody===name).forEach(v=>{
-    // Vessel sprite
+    // Vessel sprite (always on top)
     const sprite = new THREE.Sprite(new THREE.SpriteMaterial({map:circleTex, depthTest:false}));
-    sprite.renderOrder=999; scene.add(sprite); vesselSprites.push({mesh:sprite,data:v});
+    sprite.renderOrder = 999; scene.add(sprite); vesselSprites.push({mesh:sprite,data:v});
 
-    // 3D label
+    // 3D label (always on top, avoids flicker)
     if(font){
       const textGeo = new THREE.TextGeometry(v.info.name,{font:font,size:v.a*0.05,height:0});
-      const textMat = new THREE.MeshBasicMaterial({color:0xffffff});
+      const textMat = new THREE.MeshBasicMaterial({color:0xffffff, depthTest:false});
       const textMesh = new THREE.Mesh(textGeo,textMat);
-      textMesh.position.copy(sprite.position.clone().add(new THREE.Vector3(0,v.a*0.1,0)));
+      textMesh.renderOrder = 999;
       scene.add(textMesh); labelMeshes.push(textMesh);
     }
 
-    // Orbit with dynamic fade
-    const steps = 256, points=[], alphas = new Float32Array(steps+1);
-    for(let j=0;j<=steps;j++){ const Mj = 2*Math.PI*j/steps; points.push(keplerToCartesian(v.a,v.e,v.i,v.raan,v.argPeri,Mj)); alphas[j]=0; }
+    // Orbit line with dynamic fade
+    const steps=256, points=[], alphas=new Float32Array(steps+1);
+    for(let j=0;j<=steps;j++){ const Mj=2*Math.PI*j/steps; points.push(keplerToCartesian(v.a,v.e,v.i,v.raan,v.argPeri,Mj)); alphas[j]=0; }
     const geometry = new THREE.BufferGeometry().setFromPoints(points);
     geometry.setAttribute('alpha', new THREE.BufferAttribute(alphas,1));
     const material = new THREE.ShaderMaterial({
@@ -143,7 +142,7 @@ function animate(){
     const pos = keplerToCartesian(v.data.a,v.data.e,v.data.i,v.data.raan,v.data.argPeri,M);
     v.mesh.position.copy(pos);
 
-    // 3D label above vessel
+    // Label always faces camera
     if(labelMeshes[i]){
       labelMeshes[i].position.copy(pos.clone().add(new THREE.Vector3(0,v.data.a*0.1,0)));
       labelMeshes[i].lookAt(camera.position);
