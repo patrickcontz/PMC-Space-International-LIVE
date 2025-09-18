@@ -7,9 +7,9 @@
 html, body {margin:0; height:100%; overflow:hidden; background:#000; font-family:sans-serif; color:#fff;}
 #timeLabel {position:fixed; bottom:10px; background: transparent; padding:6px 10px; border-radius:0px; width: 100%; text-align: center;}
 #planetSelector {position:absolute; top:50px; left:10px; background:rgba(0,0,0,0); padding:6px 10px; border-radius:6px;}
-#infoPanel {position:fixed; border:1px solid rgb(45, 45, 45); left:2rem; top:10rem; width:18rem; min-height: 30rem;background:rgb(0, 0, 0); padding:10px; border-radius:0px; display:none;}
+#infoPanel {position:fixed; border:1px solid rgba(45, 45, 45, 0.5); left:2rem; top:10rem; width:18rem; min-height: 30rem;background:rgba(0, 0, 0, 0.8); padding:30px; border-radius:50px; display:none;}
 #infoPanel a {color:darkgray; text-decoration:none; font-size: 1rem;line-height: 3rem;}
-#planetDropdown{background: rgba(0,0,0,0.8); color: white; padding: 0.7rem 1.3rem; width: auto; top: 3rem; position: fixed; left: 15rem}
+#planetDropdown{background: rgba(0,0,0,0.8); color: white; padding: 0.7rem 1.3rem; width: auto; top: 3rem; position: fixed; left: 15rem; border-radius: 7px;}
   #pmc-logo {
     position: fixed;
     top: 0;
@@ -107,9 +107,9 @@ loader.load(
 );
 
 
-scene.add(new THREE.AmbientLight(0xffffff,0.6));
-const dirLight = new THREE.DirectionalLight(0xffffff,0.4);
-dirLight.position.set(5e6,5e6,5e6); scene.add(dirLight);
+scene.add(new THREE.AmbientLight(0xffffff,0.2));
+const dirLight = new THREE.DirectionalLight(0xffffff,1);
+dirLight.position.set(9e6,9e6,9e6); scene.add(dirLight);
 
 // Circle sprite texture
 function createCircleTexture(color='white', size=64){
