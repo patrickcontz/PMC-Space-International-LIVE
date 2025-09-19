@@ -32,5 +32,141 @@
       "description": "First crewed mission to orbit the Moon, recreated in KSP RSS/RO.",
       "youtube": "https://www.youtube.com/watch?v=VIDEO2"
     }
+  },
+  {
+    "id": "SL-0001",
+    "type": "keplerian",
+    "centralBody": "earth",
+    "epoch": 1737176400,
+    "a": 6615343,
+    "e": 0.00204,
+    "i": 52.005,
+    "raan": 0,
+    "argPeri": 0,
+    "M0": 0,
+    "info": {
+      "name": "SL-0001",
+      "description": "Starlink Satellite.",
+      "youtube": ""
+    }
+  },
+  {
+    "id": "SL-0002",
+    "type": "keplerian",
+    "centralBody": "earth",
+    "epoch": 1737176400,
+    "a": 6615343,
+    "e": 0.00204,
+    "i": 52.005,
+    "raan": 0,
+    "argPeri": 0,
+    "M0": 0.785398,
+    "info": {
+      "name": "SL-0002",
+      "description": "Starlink Satellite.",
+      "youtube": ""
+    }
+  },
+  {
+    "id": "SL-0003",
+    "type": "keplerian",
+    "centralBody": "earth",
+    "epoch": 1737176400,
+    "a": 6615343,
+    "e": 0.00204,
+    "i": 52.005,
+    "raan": 0,
+    "argPeri": 0,
+    "M0": 1.570796,
+    "info": {
+      "name": "SL-0003",
+      "description": "Starlink Satellite.",
+      "youtube": ""
+    }
+  },
+  {
+    "id": "SL-0004",
+    "type": "keplerian",
+    "centralBody": "earth",
+    "epoch": 1737176400,
+    "a": 6615343,
+    "e": 0.00204,
+    "i": 52.005,
+    "raan": 0,
+    "argPeri": 0,
+    "M0": 2.356194,
+    "info": {
+      "name": "SL-0004",
+      "description": "Starlink Satellite.",
+      "youtube": ""
+    }
+  },
+  {
+    "id": "SL-0005",
+    "type": "keplerian",
+    "centralBody": "earth",
+    "epoch": 1737176400,
+    "a": 6615343,
+    "e": 0.00204,
+    "i": 52.005,
+    "raan": 0,
+    "argPeri": 0,
+    "M0": 3.141593,
+    "info": {
+      "name": "SL-0005",
+      "description": "Starlink Satellite.",
+      "youtube": ""
+    }
+  },
+  {
+    "id": "SL-0006",
+    "type": "keplerian",
+    "centralBody": "earth",
+    "epoch": 1737176400,
+    "a": 6615343,
+    "e": 0.00204,
+    "i": 52.005,
+    "raan": 0,
+    "argPeri": 0,
+    "M0": 3.926991,
+    "info": {
+      "name": "SL-0006",
+      "description": "Starlink Satellite.",
+      "youtube": ""
+    }
+  },
+  {
+    "id": "SL-0007",
+    "type": "keplerian",
+    "centralBody": "earth",
+    "epoch": 1737176400,
+    "a": 6615343,
+    "e": 0.00204,
+    "i": 52.005,
+    "raan": 0,
+    "argPeri": 0,
+    "M0": 4.712389,
+    "info": {
+      "name": "SL-0007",
+      "description": "Starlink Satellite.",
+      "youtube": ""
+    }
+  },
+  {
+    "id": "SL-0008",
+    "type": "keplerian",
+    "centralBody": "earth",
+    "epoch": 1737176400,
+    "a": 6615343,
+    "e": 0.00204,
+    "i": 52.005,
+    "raan": 0,
+    "argPeri": 0,
+    "M0": 5.497787,
+    "info": {
+      "name": "SL-0008",
+      "description": "Starlink Satellite.",
+      "youtube": ""
+    }
   }
 ]
