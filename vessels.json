@@ -11,26 +11,9 @@
     "argPeri": 0,
     "M0": 0,
     "info": {
-      "name": "ISS Recreation",
+      "name": "ISS",
       "description": "International Space Station recreated in KSP RSS/RO.",
       "youtube": "https://www.youtube.com/watch?v=VIDEO1"
-    }
-  },
-  {
-    "id":"apollo8_recreation",
-    "type":"keplerian",
-    "centralBody":"moon",
-    "epoch": 1737176400,
-    "a": 1838000,
-    "e": 0.05,
-    "i": 1.5,
-    "raan": 0,
-    "argPeri": 0,
-    "M0": 0,
-    "info": {
-      "name": "Apollo 8 Recreation",
-      "description": "First crewed mission to orbit the Moon, recreated in KSP RSS/RO.",
-      "youtube": "https://www.youtube.com/watch?v=VIDEO2"
     }
   },
   {
@@ -38,16 +21,16 @@
     "type": "keplerian",
     "centralBody": "earth",
     "epoch": 1737176400,
-    "a": 6615343,
-    "e": 0.00204,
-    "i": 52.005,
-    "raan": 0,
-    "argPeri": 0,
-    "M0": 0,
+    "a": 6701000,
+    "e": 0.0002,
+    "i": 52.0,
+    "raan": 0.0,
+    "argPeri": 0.0,
+    "M0": 0.05,
     "info": {
       "name": "SL-0001",
       "description": "Starlink Satellite.",
-      "youtube": ""
+      "youtube": "https://www.youtube.com/watch?v=H6qddOi9xio&t=1112s"
     }
   },
   {
@@ -55,16 +38,16 @@
     "type": "keplerian",
     "centralBody": "earth",
     "epoch": 1737176400,
-    "a": 6615343,
-    "e": 0.00204,
-    "i": 52.005,
-    "raan": 0,
-    "argPeri": 0,
-    "M0": 0.785398,
+    "a": 6701000,
+    "e": 0.0002,
+    "i": 52.0,
+    "raan": 0.0,
+    "argPeri": 0.0,
+    "M0": 0.15,
     "info": {
       "name": "SL-0002",
       "description": "Starlink Satellite.",
-      "youtube": ""
+      "youtube": "https://www.youtube.com/watch?v=H6qddOi9xio&t=1112s"
     }
   },
   {
@@ -72,16 +55,16 @@
     "type": "keplerian",
     "centralBody": "earth",
     "epoch": 1737176400,
-    "a": 6615343,
-    "e": 0.00204,
-    "i": 52.005,
-    "raan": 0,
-    "argPeri": 0,
-    "M0": 1.570796,
+    "a": 6701000,
+    "e": 0.0002,
+    "i": 52.0,
+    "raan": 0.0,
+    "argPeri": 0.0,
+    "M0": 0.28,
     "info": {
       "name": "SL-0003",
       "description": "Starlink Satellite.",
-      "youtube": ""
+      "youtube": "https://www.youtube.com/watch?v=H6qddOi9xio&t=1112s"
     }
   },
   {
@@ -89,16 +72,16 @@
     "type": "keplerian",
     "centralBody": "earth",
     "epoch": 1737176400,
-    "a": 6615343,
-    "e": 0.00204,
-    "i": 52.005,
-    "raan": 0,
-    "argPeri": 0,
-    "M0": 2.356194,
+    "a": 6701000,
+    "e": 0.0002,
+    "i": 52.0,
+    "raan": 0.0,
+    "argPeri": 0.0,
+    "M0": 0.37,
     "info": {
       "name": "SL-0004",
       "description": "Starlink Satellite.",
-      "youtube": ""
+      "youtube": "https://www.youtube.com/watch?v=H6qddOi9xio&t=1112s"
     }
   },
   {
@@ -106,16 +89,16 @@
     "type": "keplerian",
     "centralBody": "earth",
     "epoch": 1737176400,
-    "a": 6615343,
-    "e": 0.00204,
-    "i": 52.005,
-    "raan": 0,
-    "argPeri": 0,
-    "M0": 3.141593,
+    "a": 6701000,
+    "e": 0.0002,
+    "i": 52.0,
+    "raan": 0.0,
+    "argPeri": 0.0,
+    "M0": 0.51,
     "info": {
       "name": "SL-0005",
       "description": "Starlink Satellite.",
-      "youtube": ""
+      "youtube": "https://www.youtube.com/watch?v=H6qddOi9xio&t=1112s"
     }
   },
   {
@@ -123,16 +106,16 @@
     "type": "keplerian",
     "centralBody": "earth",
     "epoch": 1737176400,
-    "a": 6615343,
-    "e": 0.00204,
-    "i": 52.005,
-    "raan": 0,
-    "argPeri": 0,
-    "M0": 3.926991,
+    "a": 6701000,
+    "e": 0.0002,
+    "i": 52.0,
+    "raan": 0.0,
+    "argPeri": 0.0,
+    "M0": 0.66,
     "info": {
       "name": "SL-0006",
       "description": "Starlink Satellite.",
-      "youtube": ""
+      "youtube": "https://www.youtube.com/watch?v=H6qddOi9xio&t=1112s"
     }
   },
   {
@@ -140,16 +123,16 @@
     "type": "keplerian",
     "centralBody": "earth",
     "epoch": 1737176400,
-    "a": 6615343,
-    "e": 0.00204,
-    "i": 52.005,
-    "raan": 0,
-    "argPeri": 0,
-    "M0": 4.712389,
+    "a": 6701000,
+    "e": 0.0002,
+    "i": 52.0,
+    "raan": 0.0,
+    "argPeri": 0.0,
+    "M0": 0.78,
     "info": {
       "name": "SL-0007",
       "description": "Starlink Satellite.",
-      "youtube": ""
+      "youtube": "https://www.youtube.com/watch?v=H6qddOi9xio&t=1112s"
     }
   },
   {
@@ -157,16 +140,16 @@
     "type": "keplerian",
     "centralBody": "earth",
     "epoch": 1737176400,
-    "a": 6615343,
-    "e": 0.00204,
-    "i": 52.005,
-    "raan": 0,
-    "argPeri": 0,
-    "M0": 5.497787,
+    "a": 6701000,
+    "e": 0.0002,
+    "i": 52.0,
+    "raan": 0.0,
+    "argPeri": 0.0,
+    "M0": 0.90,
     "info": {
       "name": "SL-0008",
       "description": "Starlink Satellite.",
-      "youtube": ""
+      "youtube": "https://www.youtube.com/watch?v=H6qddOi9xio&t=1112s"
     }
   }
 ]
